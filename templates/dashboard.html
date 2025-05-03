@@ -68,7 +68,7 @@
                 <div class="flex gap-2 items-center">
                   {% if st.key == 'Uploaded' %}
                     <!-- Approve -->
-                    <form action="{{ url_for('approve', filename=file.filename) }}" method="post" class="flex gap-2 items-center">
+                    <form action="{{ url_for('approve', job_id=file.job_id) }}" method="post" class="flex gap-2 items-center">
                       <input type="number" name="weight" placeholder="Weight (g)" required class="w-24 text-sm border rounded px-1 py-1"/>
                       <input type="number" name="time"   placeholder="Time (h)" step="0.01" required class="w-24 text-sm border rounded px-1 py-1"/>
                       <button type="submit" class="bg-green-600 hover:bg-green-700 text-white text-sm px-3 py-1 rounded">Approve</button>
