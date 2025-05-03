@@ -9,13 +9,13 @@
 <body class="bg-gray-50">
   <div class="max-w-4xl mx-auto px-6 py-10">
     <h1 class="text-3xl font-bold text-purple-800 mb-2">3D Print File Submission</h1>
-    <p class="text-sm text-gray-600 mb-6">{{ now }}</p>
+    <p class="text-sm text-gray-600 mb-6">May 2, 2025</p>
 
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
         <div class="mb-6 space-y-2">
           {% for category, msg in messages %}
-            <div class="p-3 rounded {{ category=='success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' }}">
+            <div class="p-3 rounded {{ 'bg-green-100 text-green-800' if category=='success' else 'bg-red-100 text-red-800' }}">
               {{ msg }}
             </div>
           {% endfor %}
