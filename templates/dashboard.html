@@ -1,3 +1,4 @@
+<!-- templates/dashboard.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -8,7 +9,6 @@
     .tab-active {
       background-color: #6b21a8;
       color: black;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
       font-weight: 600;
     }
   </style>
@@ -18,66 +18,69 @@
     <h1 class="text-3xl font-bold mb-6 text-purple-800">Fabrication Lab Print Queue</h1>
 
     {% set status_list = [
-      {'key':'Uploaded',       'label':'Uploaded'},
-      {'key':'Rejected',       'label':'Rejected'},
-      {'key':'ReadytoPrint',   'label':'Ready to Print'},
-      {'key':'Printing',       'label':'Printing'},
-      {'key':'Completed',      'label':'Completed'},
-      {'key':'PaidPickedUp',   'label':'Paid / Picked Up'}
+      {'key':'Uploaded',      'label':'Uploaded'},
+      {'key':'Rejected',      'label':'Rejected'},
+      {'key':'ReadyToPrint',  'label':'Ready to Print'},
+      {'key':'Printing',      'label':'Printing'},
+      {'key':'Completed',     'label':'Completed'},
+      {'key':'PaidPickedUp',  'label':'Paid / Picked Up'}
     ] %}
 
-    <!-- Tabs with counts -->
     <div class="flex flex-wrap gap-2 mb-6">
       {% for st in status_list %}
-        {% set slug = st.key.replace(' ','-').replace('/','-').lower() %}
+        {% set slug = st.key|lower %}
         {% set count = all_files[st.key]|length %}
-        <button
-          class="tab-button px-4 py-2 rounded-lg bg-white border border-purple-300 hover:bg-purple-50 text-sm {% if loop.first %}tab-active{% endif %}"
-          data-target="{{ slug }}">
+        <button class="tab-button px-4 py-2 rounded-lg bg-white border border-purple-300 hover:bg-purple-50 text-sm {% if loop.first %}tab-active{% endif %}"
+                data-target="{{ slug }}">
           {{ st.label }} ({{ count }})
         </button>
       {% endfor %}
     </div>
 
-    <!-- Panes -->
     {% for st in status_list %}
-      {% set slug = st.key.replace(' ','-').replace('/','-').lower() %}
+      {% set slug = st.key|lower %}
       <div id="{{ slug }}" class="tab-content {% if not loop.first %}hidden{% endif %}">
         {% set files = all_files[st.key] %}
         {% if files %}
           {% for file in files %}
-            {% set m = file.meta %}
-            {% set weight = m.get('weight',0)|float %}
-            {% set method = m.get('print_method','') %}
-            {% set cost = '%.2f'|format(weight * (0.20 if method=='Resin' else 0.10)) %}
-
-            <div class="bg-white rounded-lg shadow-sm p-4 mb-4 border hover:shadow transition">
+            <div class="bg-white rounded-lg shadow-sm p-4 mb-4 border hover:shadow">
               <div class="flex justify-between items-start mb-1 text-sm">
-                <div class="font-medium text-purple-800">{{ m.name }}</div>
+                <div class="font-medium text-purple-800">{{ file.meta.name }}</div>
                 <div class="font-medium text-gray-700">{{ file.filename }}</div>
-                <div class="text-gray-500">{{ m.email }}</div>
+                <div class="text-gray-500">{{ file.meta.email }}</div>
               </div>
 
               <div class="flex justify-between items-center text-sm mt-1">
                 <div class="flex flex-wrap gap-6 text-gray-700">
-                  <div><span class="font-medium">Cost:</span> ${{ cost }}</div>
-                  <div><span class="font-medium">Color:</span> {{ m.print_color }}</div>
-                  <div><span class="font-medium">Method:</span> {{ m.print_method }}</div>
+                  <div><span class="font-medium">Cost:</span> ${{ file.cost }}</div>
+                  <div><span class="font-medium">Color:</span> {{ file.meta.print_color }}</div>
+                  <div><span class="font-medium">Method:</span> {{ file.meta.print_method }}</div>
+                  <div><span class="font-medium">Weight:</span> {{ file.meta.weight }}g</div>
+                  <div><span class="font-medium">Time:</span> {{ file.meta.time }}h</div>
                 </div>
 
                 <div class="flex gap-2 items-center">
                   {% if st.key == 'Uploaded' %}
-                    <!-- Approve -->
-                    <form action="{{ url_for('approve', job_id=file.job_id) }}" method="post" class="flex gap-2 items-center">
-                      <input type="number" name="weight" placeholder="Weight (g)" required class="w-24 text-sm border rounded px-1 py-1"/>
-                      <input type="number" name="time"   placeholder="Time (h)" step="0.01" required class="w-24 text-sm border rounded px-1 py-1"/>
-                      <button type="submit" class="bg-green-600 hover:bg-green-700 text-white text-sm px-3 py-1 rounded">Approve</button>
-                    </form>
-                    <!-- Reject -->
-                    <form action="{{ url_for('reject', filename=file.filename) }}" method="post"
-                          onsubmit="return confirm('Send rejection email?');"
+                    <!-- Approve (sends email) -->
+                    <form action="{{ url_for('approve', job_id=file.job_id) }}" method="post"
+                          onsubmit="return confirm('Are you sure you want to approve?');"
                           class="flex gap-2 items-center">
-                      <select name="reasons" multiple required class="border rounded px-2 py-1 text-sm">
+                      <input type="number" name="weight" placeholder="Weight (g)" required
+                             step="0.01" class="w-24 text-sm border rounded px-1 py-1"/>
+                      <input type="number" name="time" placeholder="Time (h)" required
+                             step="0.01" class="w-24 text-sm border rounded px-1 py-1"/>
+                      <button type="submit"
+                              class="bg-green-600 hover:bg-green-700 text-white text-sm px-3 py-1 rounded">
+                        Approve
+                      </button>
+                    </form>
+
+                    <!-- Reject -->
+                    <form action="{{ url_for('reject', job_id=file.job_id) }}" method="post"
+                          onsubmit="return confirm('Are you sure you want to reject?');"
+                          class="flex gap-2 items-center">
+                      <select name="reasons" multiple required
+                              class="border rounded px-2 py-1 text-sm">
                         <option value="Model too large">Model too large</option>
                         <option value="Broken geometry">Broken geometry</option>
                         <option value="Unsupported overhangs">Unsupported overhangs</option>
@@ -85,13 +88,17 @@
                         <option value="Needs simplification">Needs simplification</option>
                         <option value="Other">Other</option>
                       </select>
-                      <button type="submit" class="bg-red-600 hover:bg-red-700 text-white text-sm px-3 py-1 rounded">Reject</button>
+                      <button type="submit"
+                              class="bg-red-600 hover:bg-red-700 text-white text-sm px-3 py-1 rounded">
+                        Reject
+                      </button>
                     </form>
                   {% endif %}
 
                   <!-- Open File -->
-                  {% set fp = file.fullpath.replace('\\','/') %}
-                  <a href="file:///{{ fp }}" target="_blank" class="text-blue-700 hover:underline text-sm">
+                  <a href="{{ url_for('view', filepath=st.key + '/' + file.filename) }}"
+                     target="_blank"
+                     class="text-blue-700 hover:underline text-sm">
                     Open File
                   </a>
                 </div>
