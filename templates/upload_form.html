@@ -1,3 +1,4 @@
+<!-- templates/upload_form.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -7,16 +8,14 @@
 </head>
 <body class="bg-gray-50">
   <div class="max-w-4xl mx-auto px-6 py-10">
-
     <h1 class="text-3xl font-bold text-purple-800 mb-2">3D Print File Submission</h1>
-    <p class="text-sm text-gray-600 mb-6">May 2, 2025</p>
+    <p class="text-sm text-gray-600 mb-6">{{ now }}</p>
 
-    <!-- Flash messages -->
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
         <div class="mb-6 space-y-2">
           {% for category, msg in messages %}
-            <div class="p-3 rounded {{ 'bg-green-100 text-green-800' if category=='success' else 'bg-red-100 text-red-800' }}">
+            <div class="p-3 rounded {{ category=='success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' }}">
               {{ msg }}
             </div>
           {% endfor %}
@@ -24,97 +23,117 @@
       {% endif %}
     {% endwith %}
 
-    <!-- Info Section -->
-    <div class="bg-yellow-100 text-yellow-800 p-4 rounded border mb-8 text-sm leading-relaxed">
-      <strong>Section 1<br>Important Information Before Submitting Your 3D Printing Request</strong><br><br>
-      <!-- …your text… -->
-    </div>
-
-    <!-- Upload Form -->
     <form action="{{ url_for('submit') }}" method="post" enctype="multipart/form-data"
           class="bg-white p-6 rounded shadow space-y-6 text-sm">
 
-      <!-- Personal Info -->
+      <!-- 1. Name -->
       <div>
-        <label class="block font-medium text-gray-700">1. First and Last Name</label>
-        <input type="text" name="name" placeholder="Jane Doe" required
+        <label class="block font-medium">1. First and Last Name</label>
+        <input name="name" type="text" required placeholder="Jane Doe"
                class="mt-1 block w-full border rounded px-3 py-2"/>
-        <label class="block mt-4 font-medium text-gray-700">2. LSU Email</label>
-        <input type="email" name="email" placeholder="jdoe@lsu.edu" required
-               class="mt-1 block w-full border rounded px-3 py-2"/>
-        <label class="block mt-4 font-medium text-gray-700">3. Discipline</label>
-        <select name="discipline" required class="mt-1 block w-full border rounded px-3 py-2">
-          <option value="" disabled selected>Select…</option>
-          <option>Art</option><option>Architecture</option><option>Landscape Architecture</option>
-          <option>Graphic Design</option><option>Interior Design</option><option>Engineering</option>
-          <option>Computer Science</option>
-        </select>
-        <label class="block mt-4 font-medium text-gray-700">4. Course Number</label>
-        <input type="text" name="course" placeholder="ARCH 5004" required
-               class="mt-1 block w-full border rounded px-3 py-2"/>
+        <p class="text-gray-500 text-xs">Enter your full name as you want it to appear.</p>
       </div>
 
-      <!-- Model Validation -->
+      <!-- 2. Email -->
       <div>
-        <label class="block font-medium text-gray-700">5. Read Guides?</label>
+        <label class="block font-medium">2. LSU Email</label>
+        <input name="email" type="email" required placeholder="jdoe@lsu.edu"
+               class="mt-1 block w-full border rounded px-3 py-2"/>
+        <p class="text-gray-500 text-xs">We will send you a confirmation link here.</p>
+      </div>
+
+      <!-- 3–4 -->
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block font-medium">3. Discipline</label>
+          <select name="discipline" required class="mt-1 block w-full border rounded px-3 py-2">
+            <option value="" disabled selected>Select…</option>
+            <option>Art</option><option>Architecture</option><option>Landscape Architecture</option>
+            <option>Graphic Design</option><option>Interior Design</option><option>Engineering</option>
+            <option>Computer Science</option>
+          </select>
+          <p class="text-gray-500 text-xs">Your department or program.</p>
+        </div>
+        <div>
+          <label class="block font-medium">4. Course Number</label>
+          <input name="course" type="text" required placeholder="ARCH 5004"
+                 class="mt-1 block w-full border rounded px-3 py-2"/>
+          <p class="text-gray-500 text-xs">e.g. “ARCH 5004”</p>
+        </div>
+      </div>
+
+      <!-- 5. Read Guides? -->
+      <div>
+        <label class="block font-medium">5. Read Guides?</label>
         <select name="read_guides" required class="mt-1 block w-full border rounded px-3 py-2">
           <option value="" disabled selected>Select…</option>
           <option>Yes</option><option>No</option>
         </select>
+      </div>
 
-        <label class="block mt-4 font-medium text-gray-700">6. Print Method</label>
-        <p class="text-gray-600 mt-1">
-          <strong>Resin:</strong> High detail, slow, expensive.<br>
-          <strong>Filament:</strong> Good detail, fast, cheap.
-        </p>
+      <!-- 6–7. Print Method & Color -->
+      <div>
+        <label class="block font-medium">6. Print Method</label>
         <select name="print_method" id="print_method" required
-                class="mt-2 block w-full border rounded px-3 py-2">
+                class="mt-1 block w-full border rounded px-3 py-2">
           <option value="" disabled selected>Select…</option>
           <option>Resin</option><option>Filament</option>
         </select>
-
-        <label class="block mt-4 font-medium text-gray-700">7. Print Color</label>
+        <p class="text-gray-500 text-xs mt-1"><strong>Resin:</strong> High-detail<br><strong>Filament:</strong> Fast & cost-effective</p>
+      </div>
+      <div>
+        <label class="block font-medium">7. Print Color</label>
         <select name="print_color" id="print_color" required
-                class="mt-2 block w-full border rounded px-3 py-2">
+                class="mt-1 block w-full border rounded px-3 py-2">
           <option value="" disabled selected>Select…</option>
         </select>
+        <p class="text-gray-500 text-xs">Options depend on method chosen.</p>
+      </div>
 
-        <label class="block mt-4 font-medium text-gray-700">8. Scaled Correctly?</label>
-        <select name="scaled" required class="mt-2 block w-full border rounded px-3 py-2">
+      <!-- 8–10 -->
+      <div class="grid grid-cols-3 gap-4">
+        <div>
+          <label class="block font-medium">8. Scaled Correctly?</label>
+          <select name="scaled" required class="mt-1 block w-full border rounded px-3 py-2">
+            <option value="" disabled selected>Select…</option>
+            <option>Yes</option><option>No</option>
+          </select>
+        </div>
+        <div>
+          <label class="block font-medium">9. Simplified?</label>
+          <select name="simplified" required class="mt-1 block w-full border rounded px-3 py-2">
+            <option value="" disabled selected>Select…</option>
+            <option>Yes</option><option>No</option>
+          </select>
+        </div>
+        <div>
+          <label class="block font-medium">10. Overhangs?</label>
+          <select name="overhangs" required class="mt-1 block w-full border rounded px-3 py-2">
+            <option value="" disabled selected>Select…</option>
+            <option>Yes</option><option>No</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- 11–12 & File -->
+      <div>
+        <label class="block font-medium">11. File Type</label>
+        <select name="filetype" required class="mt-1 block w-full border rounded px-3 py-2">
           <option value="" disabled selected>Select…</option>
-          <option>Yes</option><option>No</option>
+          <option>3MF</option><option>STL</option><option>OBJ</option>
         </select>
-
-        <label class="block mt-4 font-medium text-gray-700">9. Simplified?</label>
-        <select name="simplified" required class="mt-2 block w-full border rounded px-3 py-2">
-          <option value="" disabled selected>Select…</option>
-          <option>Yes</option><option>No</option>
-        </select>
-
-        <label class="block mt-4 font-medium text-gray-700">10. Large/Numerous Overhangs?</label>
-        <select name="overhangs" required class="mt-2 block w-full border rounded px-3 py-2">
+      </div>
+      <div>
+        <label class="block font-medium">12. $3 Minimum OK?</label>
+        <select name="minimum_ok" required class="mt-1 block w-full border rounded px-3 py-2">
           <option value="" disabled selected>Select…</option>
           <option>Yes</option><option>No</option>
         </select>
       </div>
-
-      <!-- File Info -->
       <div>
-        <label class="block font-medium text-gray-700">11. File Type</label>
-        <select name="filetype" required class="mt-2 block w-full border rounded px-3 py-2">
-          <option value="" disabled selected>Select…</option>
-          <option>3MF</option><option>STL</option><option>OBJ</option>
-        </select>
-
-        <label class="block mt-4 font-medium text-gray-700">12. $3 Minimum OK?</label>
-        <select name="minimum_ok" required class="mt-2 block w-full border rounded px-3 py-2">
-          <option value="" disabled selected>Select…</option>
-          <option>Yes</option><option>No</option>
-        </select>
-
-        <label class="block mt-4 font-medium text-gray-700">Upload Your File</label>
-        <input type="file" name="file"
-               accept=".3mf,.stl,.obj,.form,.idea" required
+        <label class="block font-medium">Upload Your File</label>
+        <input type="file" name="file" required
+               accept=".3mf,.stl,.obj,.form,.idea"
                class="mt-1 block w-full border rounded px-3 py-2"/>
       </div>
 
@@ -145,7 +164,8 @@
       const list = methodSelect.value === 'Filament' ? filamentColors : resinColors;
       list.forEach(c => {
         const o = document.createElement('option');
-        o.value = c; o.textContent = c;
+        o.value = c;
+        o.textContent = c;
         colorSelect.appendChild(o);
       });
     }

@@ -12,7 +12,7 @@ SMTP_PORT = int(os.getenv('SMTP_PORT'))
 
 def send_email(to_address, subject, body):
     if not to_address:
-        print("❌ No recipient email provided.")
+        print("No recipient email provided.")
         return
 
     msg = EmailMessage()
@@ -26,6 +26,6 @@ def send_email(to_address, subject, body):
             smtp.starttls()
             smtp.login(EMAIL_ADDRESS, EMAIL_PASSWORD)
             smtp.send_message(msg)
-            print(f"📧 Email sent to {to_address}: {subject}")
+            print(f"Email sent to {to_address}: {subject}")
     except Exception as e:
-        print(f"❌ Failed to send email to {to_address}: {e}")
+        print(f"Failed to send email to {to_address}: {e}")
