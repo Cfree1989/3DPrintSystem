@@ -1,0 +1,21 @@
+{
+  "name": "Rohan Durgum",
+  "email": "cfree3@lsu.edu",
+  "discipline": "Architecture",
+  "course": "Arch 4000",
+  "print_method": "Filament",
+  "print_color": "Light Purple",
+  "scaled": "Yes",
+  "simplified": "Yes",
+  "overhangs": "No",
+  "file_type": "STL",
+  "minimum_ok": "Yes",
+  "status": "uploaded",
+  "submitted": "2025-05-02T16:14:53.068770",
+  "rejection_reasons": [
+    "Broken geometry",
+    "Unsupported overhangs"
+  ],
+  "weight": 50.0,
+  "time": 1.0
+}
