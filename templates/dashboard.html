@@ -61,7 +61,7 @@
 
                 <div class="flex gap-2 items-center">
                   {% if st.key == 'Uploaded' %}
-                    <!-- Approve (sends email) -->
+                    <!-- Approve -->
                     <form action="{{ url_for('approve', job_id=file.job_id) }}" method="post"
                           onsubmit="return confirm('Are you sure you want to approve?');"
                           class="flex gap-2 items-center">
