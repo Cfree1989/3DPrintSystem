@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>3D Print File Submission</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50">
+  <div class="max-w-4xl mx-auto px-6 py-10">
+
+    <h1 class="text-3xl font-bold text-purple-800 mb-2">3D Print File Submission</h1>
+    <p class="text-sm text-gray-600 mb-6">May 2, 2025</p>
+
+    <!-- Flash messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="mb-6 space-y-2">
+          {% for category, msg in messages %}
+            <div class="p-3 rounded {{ 'bg-green-100 text-green-800' if category=='success' else 'bg-red-100 text-red-800' }}">
+              {{ msg }}
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    <!-- Info Section -->
+    <div class="bg-yellow-100 text-yellow-800 p-4 rounded border mb-8 text-sm leading-relaxed">
+      <strong>Section 1<br>Important Information Before Submitting Your 3D Printing Request</strong><br><br>
+      <!-- …your text… -->
+    </div>
+
+    <!-- Upload Form -->
+    <form action="{{ url_for('submit') }}" method="post" enctype="multipart/form-data"
+          class="bg-white p-6 rounded shadow space-y-6 text-sm">
+
+      <!-- Personal Info -->
+      <div>
+        <label class="block font-medium text-gray-700">1. First and Last Name</label>
+        <input type="text" name="name" placeholder="Jane Doe" required
+               class="mt-1 block w-full border rounded px-3 py-2"/>
+        <label class="block mt-4 font-medium text-gray-700">2. LSU Email</label>
+        <input type="email" name="email" placeholder="jdoe@lsu.edu" required
+               class="mt-1 block w-full border rounded px-3 py-2"/>
+        <label class="block mt-4 font-medium text-gray-700">3. Discipline</label>
+        <select name="discipline" required class="mt-1 block w-full border rounded px-3 py-2">
+          <option value="" disabled selected>Select…</option>
+          <option>Art</option><option>Architecture</option><option>Landscape Architecture</option>
+          <option>Graphic Design</option><option>Interior Design</option><option>Engineering</option>
+          <option>Computer Science</option>
+        </select>
+        <label class="block mt-4 font-medium text-gray-700">4. Course Number</label>
+        <input type="text" name="course" placeholder="ARCH 5004" required
+               class="mt-1 block w-full border rounded px-3 py-2"/>
+      </div>
+
+      <!-- Model Validation -->
+      <div>
+        <label class="block font-medium text-gray-700">5. Read Guides?</label>
+        <select name="read_guides" required class="mt-1 block w-full border rounded px-3 py-2">
+          <option value="" disabled selected>Select…</option>
+          <option>Yes</option><option>No</option>
+        </select>
+
+        <label class="block mt-4 font-medium text-gray-700">6. Print Method</label>
+        <p class="text-gray-600 mt-1">
+          <strong>Resin:</strong> High detail, slow, expensive.<br>
+          <strong>Filament:</strong> Good detail, fast, cheap.
+        </p>
+        <select name="print_method" id="print_method" required
+                class="mt-2 block w-full border rounded px-3 py-2">
+          <option value="" disabled selected>Select…</option>
+          <option>Resin</option><option>Filament</option>
+        </select>
+
+        <label class="block mt-4 font-medium text-gray-700">7. Print Color</label>
+        <select name="print_color" id="print_color" required
+                class="mt-2 block w-full border rounded px-3 py-2">
+          <option value="" disabled selected>Select…</option>
+        </select>
+
+        <label class="block mt-4 font-medium text-gray-700">8. Scaled Correctly?</label>
+        <select name="scaled" required class="mt-2 block w-full border rounded px-3 py-2">
+          <option value="" disabled selected>Select…</option>
+          <option>Yes</option><option>No</option>
+        </select>
+
+        <label class="block mt-4 font-medium text-gray-700">9. Simplified?</label>
+        <select name="simplified" required class="mt-2 block w-full border rounded px-3 py-2">
+          <option value="" disabled selected>Select…</option>
+          <option>Yes</option><option>No</option>
+        </select>
+
+        <label class="block mt-4 font-medium text-gray-700">10. Large/Numerous Overhangs?</label>
+        <select name="overhangs" required class="mt-2 block w-full border rounded px-3 py-2">
+          <option value="" disabled selected>Select…</option>
+          <option>Yes</option><option>No</option>
+        </select>
+      </div>
+
+      <!-- File Info -->
+      <div>
+        <label class="block font-medium text-gray-700">11. File Type</label>
+        <select name="filetype" required class="mt-2 block w-full border rounded px-3 py-2">
+          <option value="" disabled selected>Select…</option>
+          <option>3MF</option><option>STL</option><option>OBJ</option>
+        </select>
+
+        <label class="block mt-4 font-medium text-gray-700">12. $3 Minimum OK?</label>
+        <select name="minimum_ok" required class="mt-2 block w-full border rounded px-3 py-2">
+          <option value="" disabled selected>Select…</option>
+          <option>Yes</option><option>No</option>
+        </select>
+
+        <label class="block mt-4 font-medium text-gray-700">Upload Your File</label>
+        <input type="file" name="file"
+               accept=".3mf,.stl,.obj,.form,.idea" required
+               class="mt-1 block w-full border rounded px-3 py-2"/>
+      </div>
+
+      <div class="pt-4">
+        <button type="submit"
+                class="bg-purple-700 hover:bg-purple-800 text-white px-4 py-2 rounded font-semibold">
+          Submit Print Request
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <script>
+    const filamentColors = [
+      "True Red","True Orange","Light Orange","True Yellow","Dark Yellow",
+      "Lime Green","Green","Forest Green","Blue","Electric Blue",
+      "Midnight Purple","Light Purple","Clear","True White","Gray",
+      "True Black","Brown","Copper","Bronze","True Silver","True Gold",
+      "Glow in the Dark Color Changing"
+    ];
+    const resinColors = ["Black","White","Gray","Clear"];
+
+    const methodSelect = document.getElementById('print_method');
+    const colorSelect  = document.getElementById('print_color');
+
+    function updateColorOptions() {
+      colorSelect.innerHTML = '<option value="" disabled selected>Select…</option>';
+      const list = methodSelect.value === 'Filament' ? filamentColors : resinColors;
+      list.forEach(c => {
+        const o = document.createElement('option');
+        o.value = c; o.textContent = c;
+        colorSelect.appendChild(o);
+      });
+    }
+
+    methodSelect.addEventListener('change', updateColorOptions);
+    window.addEventListener('DOMContentLoaded', updateColorOptions);
+  </script>
+</body>
+</html>
