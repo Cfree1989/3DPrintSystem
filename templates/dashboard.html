@@ -29,7 +29,7 @@
     <div class="flex flex-wrap gap-2 mb-6">
       {% for st in status_list %}
         {% set slug = st.key|lower %}
-        {% set count = all_files[st.key]|length %}
+        {% set count = jobs_by_status[st.key]|length %}
         <button class="tab-button px-4 py-2 rounded-lg bg-white border border-purple-300 hover:bg-purple-50 text-sm {% if loop.first %}tab-active{% endif %}"
                 data-target="{{ slug }}">
           {{ st.label }} ({{ count }})
@@ -40,63 +40,55 @@
     {% for st in status_list %}
       {% set slug = st.key|lower %}
       <div id="{{ slug }}" class="tab-content {% if not loop.first %}hidden{% endif %}">
-        {% set files = all_files[st.key] %}
+        {% set files = jobs_by_status[st.key] %}
         {% if files %}
           {% for file in files %}
             <div class="bg-white rounded-lg shadow-sm p-4 mb-4 border hover:shadow">
               <div class="flex justify-between items-start mb-1 text-sm">
-                <div class="font-medium text-purple-800">{{ file.meta.name }}</div>
+                <div class="font-medium text-purple-800">{{ file.name }}</div>
                 <div class="font-medium text-gray-700">{{ file.filename }}</div>
-                <div class="text-gray-500">{{ file.meta.email }}</div>
+                <div class="text-gray-500">{{ file.email }}</div>
               </div>
 
               <div class="flex justify-between items-center text-sm mt-1">
                 <div class="flex flex-wrap gap-6 text-gray-700">
                   <div><span class="font-medium">Cost:</span> ${{ file.cost }}</div>
-                  <div><span class="font-medium">Color:</span> {{ file.meta.print_color }}</div>
-                  <div><span class="font-medium">Method:</span> {{ file.meta.print_method }}</div>
-                  <div><span class="font-medium">Weight:</span> {{ file.meta.weight }}g</div>
-                  <div><span class="font-medium">Time:</span> {{ file.meta.time }}h</div>
+                  <div><span class="font-medium">Color:</span> {{ file.color }}</div>
+                  <div><span class="font-medium">Method:</span> {{ file.printer }}</div>
+                  <div><span class="font-medium">Weight:</span> {{ file.weight }}g</div>
+                  <div><span class="font-medium">Time:</span> {{ file.time_hours }}h {{ file.time_minutes }}m</div>
                 </div>
 
-                <div class="flex gap-2 items-center">
+                <div class="flex flex-col gap-2 items-end">
                   {% if st.key == 'Uploaded' %}
-                    <!-- Approve -->
-                    <form action="{{ url_for('approve', job_id=file.job_id) }}" method="post"
-                          onsubmit="return confirm('Are you sure you want to approve?');"
-                          class="flex gap-2 items-center">
-                      <input type="number" name="weight" placeholder="Weight (g)" required
-                             step="0.01" class="w-24 text-sm border rounded px-1 py-1"/>
-                      <input type="number" name="time" placeholder="Time (h)" required
-                             step="0.01" class="w-24 text-sm border rounded px-1 py-1"/>
-                      <button type="submit"
-                              class="bg-green-600 hover:bg-green-700 text-white text-sm px-3 py-1 rounded">
+                    <!-- Approve controls -->
+                    <div class="flex gap-2 items-center">
+                      <input type="number" name="weight" placeholder="Weight (g)" required step="0.01"
+                             class="weight-input w-24 border rounded px-2 py-1 text-sm" data-job-id="{{ file.id }}" />
+                      <select name="material" required
+                              class="material-select w-28 border rounded px-2 py-1 text-sm" data-job-id="{{ file.id }}">
+                        <option value="">Material</option>
+                        <option>PLA</option>
+                        <option>PETG</option>
+                      </select>
+                      <input type="number" name="time" placeholder="Time (h)" required step="0.01"
+                             class="time-input w-24 border rounded px-2 py-1 text-sm" data-job-id="{{ file.id }}" />
+                      <button type="button"
+                              class="approve-btn bg-green-600 hover:bg-green-700 text-white text-sm px-3 py-1 rounded"
+                              data-job-id="{{ file.id }}" disabled>
                         Approve
                       </button>
-                    </form>
-
-                    <!-- Reject -->
-                    <form action="{{ url_for('reject', job_id=file.job_id) }}" method="post"
-                          onsubmit="return confirm('Are you sure you want to reject?');"
-                          class="flex gap-2 items-center">
-                      <select name="reasons" multiple required
-                              class="border rounded px-2 py-1 text-sm">
-                        <option value="Model too large">Model too large</option>
-                        <option value="Broken geometry">Broken geometry</option>
-                        <option value="Unsupported overhangs">Unsupported overhangs</option>
-                        <option value="Scale incorrect">Scale incorrect</option>
-                        <option value="Needs simplification">Needs simplification</option>
-                        <option value="Other">Other</option>
-                      </select>
-                      <button type="submit"
-                              class="bg-red-600 hover:bg-red-700 text-white text-sm px-3 py-1 rounded">
-                        Reject
-                      </button>
-                    </form>
+                    </div>
+                    <!-- Reject trigger -->
+                    <button type="button"
+                            class="reject-btn bg-red-600 hover:bg-red-700 text-white text-sm px-3 py-1 rounded"
+                            data-job-id="{{ file.id }}">
+                      Reject
+                    </button>
                   {% endif %}
 
                   <!-- Open File -->
-                  <a href="{{ url_for('view', filepath=st.key + '/' + file.filename) }}"
+                  <a href="{{ url_for('open_file', job_id=file.id) }}"
                      target="_blank"
                      class="text-blue-700 hover:underline text-sm">
                     Open File
@@ -110,6 +102,27 @@
         {% endif %}
       </div>
     {% endfor %}
+
+    <!-- Reject Modal -->
+    <div id="reject-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden">
+      <div class="bg-white p-6 rounded mx-auto mt-24 max-w-lg">
+        <h2 class="text-lg font-bold mb-4">Select rejection reasons</h2>
+        <form id="reject-form" class="space-y-2 text-sm">
+          <label><input type="checkbox" name="reasons" value="Model too large"> Model too large</label><br>
+          <label><input type="checkbox" name="reasons" value="Broken geometry"> Broken geometry</label><br>
+          <label><input type="checkbox" name="reasons" value="Unsupported overhangs"> Unsupported overhangs</label><br>
+          <label><input type="checkbox" name="reasons" value="Scale incorrect"> Scale incorrect</label><br>
+          <label><input type="checkbox" name="reasons" value="Needs simplification"> Needs simplification</label><br>
+          <label><input type="checkbox" name="reasons" value="Other"> Other</label>
+          <div class="mt-4 flex justify-end gap-2">
+            <button type="button" id="confirm-reject"
+                    class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded">Reject</button>
+            <button type="button" id="cancel-reject"
+                    class="px-4 py-2 border rounded">Cancel</button>
+          </div>
+        </form>
+      </div>
+    </div>
   </div>
 
   <script>
@@ -122,6 +135,60 @@
         document.getElementById(btn.dataset.target).classList.remove('hidden');
         btn.classList.add('tab-active');
       });
+    });
+
+    document.addEventListener('DOMContentLoaded', () => {
+      // Enable Approve button
+      document.querySelectorAll('tr[data-job-id]').forEach(row => {
+        const id        = row.dataset.jobId;
+        const weight    = document.querySelector(`.weight-input[data-job-id="${id}"]`);
+        const material  = document.querySelector(`.material-select[data-job-id="${id}"]`);
+        const time      = document.querySelector(`.time-input[data-job-id="${id}"]`);
+        const approveBtn= document.querySelector(`.approve-btn[data-job-id="${id}"]`);
+        function toggle() {
+          approveBtn.disabled = !(weight.value && material.value && time.value);
+        }
+        [weight, material, time].forEach(el => el.addEventListener('input', toggle));
+        toggle();
+      });
+
+      // Approve action
+      document.querySelectorAll('.approve-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          if (!confirm('Are you sure you want to approve?')) return;
+          const id = btn.dataset.jobId;
+          const data = new FormData();
+          data.append('job_id', id);
+          data.append('weight', document.querySelector(`.weight-input[data-job-id="${id}"]`).value);
+          data.append('material', document.querySelector(`.material-select[data-job-id="${id}"]`).value);
+          data.append('time', document.querySelector(`.time-input[data-job-id="${id}"]`).value);
+          fetch('/approve', { method:'POST', body: data })
+            .then(res => res.ok && location.reload());
+        });
+      });
+
+      // Reject modal logic
+      let currentRejectId = null;
+      document.querySelectorAll('.reject-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          currentRejectId = btn.dataset.jobId;
+          document.getElementById('reject-modal').classList.remove('hidden');
+        });
+      });
+      document.getElementById('cancel-reject').onclick = () => {
+        document.getElementById('reject-modal').classList.add('hidden');
+      };
+      document.getElementById('confirm-reject').onclick = () => {
+        const checks = document.querySelectorAll('#reject-form input[name="reasons"]:checked');
+        const reasons = Array.from(checks).map(cb => cb.value);
+        if (!reasons.length) { alert('Select at least one reason'); return; }
+        if (!confirm('Are you sure you want to reject?')) return;
+        const data = new FormData();
+        data.append('job_id', currentRejectId);
+        reasons.forEach(r => data.append('reasons', r));
+        fetch('/reject', { method:'POST', body: data })
+          .then(res => res.ok && location.reload());
+      };
     });
   </script>
 </body>

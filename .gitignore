@@ -7,3 +7,10 @@ __pycache__/
 *.pyc
 *.log
 .vscode/
+# Local SQLite database
+Instance/jobs.db
+
+# Job folders (Uploaded, Pending, etc.)
+# Adjust path if your jobs root is not directly under project root
+jobs/
+
