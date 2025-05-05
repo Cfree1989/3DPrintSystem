@@ -2,156 +2,158 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
   <title>3D Print File Submission</title>
-  <!-- Use system fonts for an Apple-like look -->
-  <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; }
-  </style>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-white text-gray-900 antialiased">
-  <div class="min-h-screen flex items-center justify-center px-6 py-12">
-    <div class="w-full max-w-2xl">
-      <!-- Header -->
-      <h1 class="text-4xl font-semibold text-center mb-2 tracking-tight">3D Print File Submission</h1>
-      <p id="current-date" class="text-center text-sm uppercase text-gray-500 mb-10"></p>
+<body class="bg-gray-50">
+  <div class="max-w-4xl mx-auto px-6 py-10">
+    <h1 class="text-3xl font-bold text-purple-800 mb-2">3D Print File Submission</h1>
+    <p id="current-date" class="text-sm text-gray-600 mb-6"></p>
 
-      <!-- Flash Messages -->
-      {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-          <div class="mb-8 space-y-4">
-            {% for category, msg in messages %}
-              <div class="p-3 rounded {{ 'bg-green-50 text-green-700' if category=='success' else 'bg-red-50 text-red-700' }} shadow-inner">
-                {{ msg }}
-              </div>
-            {% endfor %}
-          </div>
-        {% endif %}
-      {% endwith %}
-
-      <!-- Form -->
-      <form action="{{ url_for('submit') }}" method="post" enctype="multipart/form-data" class="space-y-12">
-
-        <!-- 1. Name -->
-        <div class="space-y-1">
-          <label class="block text-gray-600 uppercase text-xs tracking-wide">1. First and Last Name</label>
-          <input name="name" type="text" required placeholder="Jane Doe"
-                 class="block w-full border-b border-gray-300 focus:border-black focus:outline-none py-3 text-lg shadow-sm focus:shadow-md"/>
-          <p class="text-gray-500 text-xs mt-1">Enter your full name as you want it to appear.</p>
-        </div>
-
-        <!-- 2. Email -->
-        <div class="space-y-1">
-          <label class="block text-gray-600 uppercase text-xs tracking-wide">2. LSU Email</label>
-          <input name="email" type="email" required placeholder="jdoe@lsu.edu"
-                 class="block w-full border-b border-gray-300 focus:border-black focus:outline-none py-3 text-lg shadow-sm focus:shadow-md"/>
-          <p class="text-gray-500 text-xs mt-1">We will send you a confirmation link here.</p>
-        </div>
-
-        <!-- 3–4 Discipline & Course -->
-        <div class="grid grid-cols-2 gap-8">
-          <div class="space-y-1">
-            <label class="block text-gray-600 uppercase text-xs tracking-wide">3. Discipline</label>
-            <select name="discipline" id="discipline_select" required
-                    class="block w-full border-b border-gray-300 focus:border-black focus:outline-none py-3 text-lg shadow-sm focus:shadow-md">
-              <option value="" disabled selected>Select…</option>
-              <option>Art</option>
-              <option>Architecture</option>
-              <option>Landscape Architecture</option>
-              <option>Graphic Design</option>
-              <option>Interior Design</option>
-              <option>Engineering</option>
-              <option>Computer Science</option>
-              <option value="Other">Other</option>
-            </select>
-            <p class="text-gray-500 text-xs mt-1">Your department or program.</p>
-            <div id="discipline_other_div" class="mt-2 hidden space-y-1">
-              <label class="block text-gray-600 uppercase text-xs tracking-wide">Please specify your discipline</label>
-              <input type="text" name="discipline_other" id="discipline_other" placeholder="Your discipline"
-                     class="block w-full border-b border-gray-300 focus:border-black focus:outline-none py-3 text-lg shadow-sm focus:shadow-md"/>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="mb-6 space-y-2">
+          {% for category, msg in messages %}
+            <div class="p-3 rounded {{ 'bg-green-100 text-green-800' if category=='success' else 'bg-red-100 text-red-800' }}">
+              {{ msg }}
             </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    <form action="{{ url_for('submit') }}" method="post" enctype="multipart/form-data"
+          class="bg-white p-6 rounded shadow space-y-6 text-sm">
+
+      <!-- 1. Name -->
+      <div>
+        <label class="block font-medium">1. First and Last Name</label>
+        <input name="name" type="text" required placeholder="Jane Doe"
+               class="mt-1 block w-full border rounded px-3 py-2"/>
+        <p class="text-gray-500 text-xs">Enter your full name as you want it to appear.</p>
+      </div>
+
+      <!-- 2. Email -->
+      <div>
+        <label class="block font-medium">2. LSU Email</label>
+        <input name="email" type="email" required placeholder="jdoe@lsu.edu"
+               class="mt-1 block w-full border rounded px-3 py-2"/>
+        <p class="text-gray-500 text-xs">We will send you a confirmation link here.</p>
+      </div>
+
+      <!-- 3–4 Discipline & Course -->
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block font-medium">3. Discipline</label>
+          <select name="discipline" id="discipline_select" required
+                  class="mt-1 block w-full border rounded px-3 py-2">
+            <option value="" disabled selected>Select…</option>
+            <option>Art</option>
+            <option>Architecture</option>
+            <option>Landscape Architecture</option>
+            <option>Graphic Design</option>
+            <option>Interior Design</option>
+            <option>Engineering</option>
+            <option>Computer Science</option>
+            <option value="Other">Other</option>
+          </select>
+          <p class="text-gray-500 text-xs">Your department or program.</p>
+          <div id="discipline_other_div" class="mt-2 hidden">
+            <label class="block font-medium">Please specify your discipline</label>
+            <input type="text" name="discipline_other" id="discipline_other"
+                   placeholder="Your discipline"
+                   class="mt-1 block w-full border rounded px-3 py-2"/>
           </div>
-          <div class="space-y-1">
-            <label class="block text-gray-600 uppercase text-xs tracking-wide">4. Course Number</label>
-            <input name="course" type="text" required placeholder="ARCH 5004"
-                   class="block w-full border-b border-gray-300 focus:border-black focus:outline-none py-3 text-lg shadow-sm focus:shadow-md"/>
-            <p class="text-gray-500 text-xs mt-1">e.g. “ARCH 5004”</p>
-          </div>
         </div>
+        <div>
+          <label class="block font-medium">4. Course Number</label>
+          <input name="course" type="text" required placeholder="ARCH 5004"
+                 class="mt-1 block w-full border rounded px-3 py-2"/>
+          <p class="text-gray-500 text-xs">e.g. “ARCH 5004”</p>
+        </div>
+      </div>
 
-        <!-- 5. Print Method -->
-        <div class="space-y-1">
-          <label class="block text-gray-600 uppercase text-xs tracking-wide">5. Print Method</label>
-          <select name="print_method" id="print_method" required
-                  class="block w-full border-b border-gray-300 focus:border-black focus:outline-none py-3 text-lg shadow-sm focus:shadow-md">
-            <option value="" disabled selected>Select…</option>
-            <option>Filament</option>
-            <option>Resin</option>
-          </select>
-          <p class="text-gray-500 text-xs mt-1">
-            Choose the appropriate print method for your model.<br><strong>Filament:</strong> Good resolution, fast.<br><strong>Resin:</strong> Super high detail, slower.
-          </p>
-        </div>
+      <!-- 5. Print Method -->
+      <div>
+        <label class="block font-medium">5. Print Method</label>
+        <select name="print_method" id="print_method" required
+                class="mt-1 block w-full border rounded px-3 py-2">
+          <option value="" disabled selected>Select…</option>
+          <option>Filament</option>
+          <option>Resin</option>
+        </select>
+        <p class="text-gray-500 text-xs mt-1">
+          Choose the appropriate print method for your model:<br><br>
+          <strong>Filament:</strong><br>
+          &nbsp;&nbsp;○ Description: Good resolution, suitable for simpler models. Fast.<br>
+          &nbsp;&nbsp;○ Best For: Medium items.<br>
+          &nbsp;&nbsp;○ Cost: Least expensive.<br><br>
+          <strong>Resin:</strong><br>
+          &nbsp;&nbsp;○ Description: Super high resolution and detail. Slow.<br>
+          &nbsp;&nbsp;○ Best For: Small items.<br>
+          &nbsp;&nbsp;○ Cost: More expensive.<br>
+        </p>
+      </div>
 
-        <!-- 6. Print Color -->
-        <div class="space-y-1">
-          <label class="block text-gray-600 uppercase text-xs tracking-wide">6. Print Color</label>
-          <select name="print_color" id="print_color" required disabled
-                  class="block w-full border-b border-gray-300 focus:border-black focus:outline-none py-3 text-lg shadow-sm focus:shadow-md">
-            <option value="" disabled selected>Select…</option>
-          </select>
-          <p class="text-gray-500 text-xs mt-1">Options depend on method chosen.</p>
-        </div>
+      <!-- 6. Print Color -->
+      <div>
+        <label class="block font-medium">6. Print Color</label>
+        <select name="print_color" id="print_color" required disabled
+                class="mt-1 block w-full border rounded px-3 py-2">
+          <option value="" disabled selected>Select…</option>
+        </select>
+        <p class="text-gray-500 text-xs">Options depend on method chosen.</p>
+      </div>
 
-        <!-- 7. Fit Size -->
-        <div class="space-y-1">
-          <label class="block text-gray-600 uppercase text-xs tracking-wide">7. Will This Fit On a Printer?</label>
-          <select name="scaled" required
-                  class="block w-full border-b border-gray-300 focus:border-black focus:outline-none py-3 text-lg shadow-sm focus:shadow-md">
-            <option value="" disabled selected>Select…</option>
-            <option>Yes</option>
-            <option>No</option>
-          </select>
-          <p class="text-gray-500 text-xs mt-1">
-            <strong>FDM/Filament:</strong> Prusa MK4S – 250×210×220 mm<br>
-            <strong>SLA/Resin:</strong> Formlabs Form 3 – 145×145×175 mm<br>
-            Scale in millimeters before exporting.
-          </p>
-        </div>
+      <!-- 7. Scaled Correctly? -->
+      <div>
+        <label class="block font-medium">7. Will This Fit On a Printer?</label>
+        <select name="scaled" required class="mt-1 block w-full border rounded px-3 py-2">
+          <option value="" disabled selected>Select…</option>
+          <option>Yes</option>
+          <option>No</option>
+        </select>
+        <p class="text-gray-500 text-xs mt-1">
+          <strong>FDM/Filament:</strong><br>
+          <strong>Prusa MK4S</strong> – Build Plate Size: 9.84" × 8.3" × 8.6" (250 × 210 × 220 mm)<br>
+          <strong>Prusa XL</strong> – Build Plate Size: 14.17" × 14.17" × 14.17" (360 × 360 × 360 mm)<br>
+          <strong>Raise3D Pro 2 Plus</strong> – Build Plate Size: 12" × 12" × 23.8" (305 × 305 × 605 mm)<br><br>
+          <strong>SLA/Resin:</strong><br>
+          <strong>Formlabs Form 3</strong> – Build Plate Size: 5.7" × 5.7" × 7.3" (145 × 145 × 175 mm)<br><br>
+          Ensure your model’s dimensions are within the specified limits for the printer you plan to use. If your model is too large, consider scaling it down or splitting it into parts. For more guidance, refer to the design guides on our Moodle page or ask for assistance in person.<br><br>
+          <strong>If exporting as .STL or .OBJ you MUST scale it down in millimeters BEFORE exporting. If you do not, the scale will not work correctly.</strong>
+        </p>
+      </div>
 
-        <!-- 8. Minimum OK -->
-        <div class="space-y-1">
-          <label class="block text-gray-600 uppercase text-xs tracking-wide">8. $3 Minimum OK?</label>
-          <select name="minimum_ok" required
-                  class="block w-full border-b border-gray-300 focus:border-black focus:outline-none py-3 text-lg shadow-sm focus:shadow-md">
-            <option value="" disabled selected>Select…</option>
-            <option>Yes</option>
-            <option>No</option>
-          </select>
-        </div>
+      <!-- 8. $3 Minimum OK? -->
+      <div>
+        <label class="block font-medium">8. $3 Minimum OK?</label>
+        <select name="minimum_ok" required class="mt-1 block w-full border rounded px-3 py-2">
+          <option value="" disabled selected>Select…</option>
+          <option>Yes</option>
+          <option>No</option>
+        </select>
+      </div>
 
-        <!-- Upload File -->
-        <div class="space-y-1">
-          <label class="block text-gray-600 uppercase text-xs tracking-wide">Upload Your File</label>
-          <input type="file" name="file" required accept=".3mf,.stl,.obj,.form,.idea"
-                 class="block w-full text-lg focus:outline-none text-gray-900 shadow-sm focus:shadow-md"/>
-        </div>
+      <!-- Upload File -->
+      <div>
+        <label class="block font-medium">Upload Your File</label>
+        <input type="file" name="file" required accept=".3mf,.stl,.obj,.form,.idea"
+               class="mt-1 block w-full border rounded px-3 py-2"/>
+      </div>
 
-        <!-- Submit Button -->
-        <div class="pt-6">
-          <button type="submit"
-                  class="w-full inline-flex items-center justify-center bg-black text-white font-semibold rounded-full px-6 py-3 shadow-md hover:shadow-xl hover:bg-gray-800 transition-shadow transition-colors duration-200 ease-in-out">
-            Submit Print Request
-          </button>
-        </div>
-      </form>
-    </div>
+      <div class="pt-4">
+        <button type="submit"
+                class="bg-purple-700 hover:bg-purple-800 text-white px-4 py-2 rounded font-semibold">
+          Submit Print Request
+        </button>
+      </div>
+    </form>
   </div>
 
   <script>
-    // Color dropdown logic
+    // ----- color dropdown logic -----
     const filamentColors = [
       "True Red","True Orange","Light Orange","True Yellow","Dark Yellow",
       "Lime Green","Green","Forest Green","Blue","Electric Blue",
@@ -160,8 +162,10 @@
       "Glow in the Dark Color Changing"
     ];
     const resinColors = ["Black","White","Gray","Clear"];
+
     const methodSelect = document.getElementById('print_method');
     const colorSelect  = document.getElementById('print_color');
+
     function updateColorOptions() {
       const method = methodSelect.value;
       colorSelect.disabled = !method;
@@ -169,27 +173,31 @@
       if (!method) return;
       const list = method === 'Filament' ? filamentColors : resinColors;
       list.forEach(c => {
-        const o = document.createElement('option'); o.value = c; o.textContent = c;
+        const o = document.createElement('option');
+        o.value = c;
+        o.textContent = c;
         colorSelect.appendChild(o);
       });
     }
+
     methodSelect.addEventListener('change', updateColorOptions);
     window.addEventListener('DOMContentLoaded', updateColorOptions);
 
-    // Discipline "Other" logic
+    // ----- discipline "Other" logic -----
     const disciplineSelect     = document.getElementById('discipline_select');
     const disciplineOtherDiv   = document.getElementById('discipline_other_div');
     const disciplineOtherInput = document.getElementById('discipline_other');
+
     function updateDisciplineOther() {
       const isOther = disciplineSelect.value === 'Other';
       disciplineOtherDiv.classList.toggle('hidden', !isOther);
       disciplineOtherInput.required = isOther;
     }
+
     disciplineSelect.addEventListener('change', updateDisciplineOther);
     window.addEventListener('DOMContentLoaded', updateDisciplineOther);
 
-    // Date display
-    const dateElem = document.getElementById('current-date');
+        const dateElem = document.getElementById('current-date');
     if (dateElem) {
       const opts = { month: 'long', day: 'numeric', year: 'numeric' };
       dateElem.textContent = new Date().toLocaleDateString('en-US', opts);
