@@ -2,16 +2,11 @@ import os
 import shutil
 from flask import Flask, render_template, request, url_for, redirect, jsonify
 from flask_sqlalchemy import SQLAlchemy
-from filelock import FileLock
+import filelock
 from email_util import send_email
 
-app = Flask(__name__, template_folder='Templates')
-
-# Ensure instance folder exists and configure SQLite path
-instance_dir = os.path.join(app.root_path, 'instance')
-os.makedirs(instance_dir, exist_ok=True)
-db_path = os.path.join(instance_dir, 'jobs.db')
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + db_path
+app = Flask(__name__)
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///jobs.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
@@ -71,7 +66,6 @@ def submit():
         uploaded = request.files.get('file')
         if not uploaded:
             return redirect(url_for('dashboard'))
-
         fname = uploaded.filename
         job = Job(
             filename=fname,
@@ -81,7 +75,6 @@ def submit():
         )
         db.session.add(job)
         db.session.commit()
-
         dest = os.path.join(JOBS_ROOT, UPLOADED_FOLDER, fname)
         uploaded.save(dest)
         return redirect(url_for('dashboard'))
@@ -91,7 +84,6 @@ def submit():
 def approve():
     job_id = request.form.get('job_id')
     job = Job.query.get_or_404(int(job_id))
-
     job.weight = float(request.form.get('weight', 0))
     job.time_hours = int(request.form.get('time_hours', 0))
     job.time_minutes = int(request.form.get('time_minutes', 0))
@@ -101,15 +93,13 @@ def approve():
         job.cost = job.weight * 0.20
     else:
         job.cost = job.weight * 0.10
-
     # Move file: Uploaded -> Pending
     src = os.path.join(JOBS_ROOT, UPLOADED_FOLDER, job.filename)
     dst = os.path.join(JOBS_ROOT, PENDING_FOLDER, job.filename)
-    with FileLock(src + '.lock'):
+    with filelock.FileLock(src + '.lock'):
         shutil.move(src, dst)
     job.status = PENDING_FOLDER
     db.session.commit()
-
     # Send confirmation email to student
     link = url_for('confirm_print', job_id=job.id, _external=True)
     body = f"""Your print request is almost ready. Please confirm here:
@@ -121,7 +111,7 @@ Time: {job.time_hours}h {job.time_minutes}m
 Color: {job.color or 'N/A'}
 Material: {job.material or 'N/A'}"""
     send_email(job.email, "Confirm your 3D print request", body)
-    return redirect(url_for('dashboard'))
+    return jsonify(success=True)
 
 @app.route('/confirm_print/<int:job_id>', methods=['GET', 'POST'])
 def confirm_print(job_id):
@@ -132,9 +122,8 @@ def confirm_print(job_id):
         # Move file: Pending -> ReadyToPrint
         src = os.path.join(JOBS_ROOT, PENDING_FOLDER, job.filename)
         dst = os.path.join(JOBS_ROOT, READY_TO_PRINT_FOLDER, job.filename)
-        with FileLock(src + '.lock'):
+        with filelock.FileLock(src + '.lock'):
             shutil.move(src, dst)
-
         job.status = READY_TO_PRINT_FOLDER
         job.student_confirmed = True
         db.session.commit()
@@ -147,15 +136,12 @@ def reject():
     job = Job.query.get_or_404(int(job_id))
     reasons = request.form.getlist('reasons')
     job.rejection_reasons = '; '.join(reasons)
-
     src = os.path.join(JOBS_ROOT, UPLOADED_FOLDER, job.filename)
     dst = os.path.join(JOBS_ROOT, REJECTED_FOLDER, job.filename)
-    with FileLock(src + '.lock'):
+    with filelock.FileLock(src + '.lock'):
         shutil.move(src, dst)
-
     job.status = REJECTED_FOLDER
     db.session.commit()
-
     body = "Your 3D print request was rejected for these reasons:\n\n" + "\n".join(f"- {r}" for r in reasons)
     send_email(job.email, "Your print request was rejected", body)
     return jsonify(success=True)
@@ -165,23 +151,11 @@ def move(job_id, to_status):
     job = Job.query.get_or_404(job_id)
     src = os.path.join(JOBS_ROOT, job.status, job.filename)
     dst = os.path.join(JOBS_ROOT, to_status, job.filename)
-    with FileLock(src + '.lock'):
+    with filelock.FileLock(src + '.lock'):
         shutil.move(src, dst)
     job.status = to_status
     db.session.commit()
     return jsonify(success=True)
-
-from flask import send_file, abort
-
-@app.route('/open_file/<int:job_id>')
-def open_file(job_id):
-    job = Job.query.get_or_404(job_id)
-    # Build path to the file in its current status folder
-    path = os.path.join(JOBS_ROOT, job.status, job.filename)
-    if not os.path.exists(path):
-        abort(404)
-    # Let Flask send it inline in the browser
-    return send_file(path, as_attachment=False)
 
 if __name__ == '__main__':
     app.run()

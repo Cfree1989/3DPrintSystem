@@ -34,7 +34,7 @@
         <p class="text-gray-500 text-xs">Enter your full name as you want it to appear.</p>
       </div>
 
-      <!-- 2. Email -->
+      <!-- 2. LSU Email -->
       <div>
         <label class="block font-medium">2. LSU Email</label>
         <input name="email" type="email" required placeholder="jdoe@lsu.edu"
@@ -42,7 +42,7 @@
         <p class="text-gray-500 text-xs">We will send you a confirmation link here.</p>
       </div>
 
-      <!-- 3–4 Discipline & Course -->
+      <!-- 3–4. Discipline & Course Number -->
       <div class="grid grid-cols-2 gap-4">
         <div>
           <label class="block font-medium">3. Discipline</label>
@@ -106,9 +106,9 @@
         <p class="text-gray-500 text-xs">Options depend on method chosen.</p>
       </div>
 
-      <!-- 7. Scaled Correctly? -->
+      <!-- 7. Will This Fit On A Printer? -->
       <div>
-        <label class="block font-medium">7. Will This Fit On a Printer?</label>
+        <label class="block font-medium">7. Will This Fit On A Printer?</label>
         <select name="scaled" required class="mt-1 block w-full border rounded px-3 py-2">
           <option value="" disabled selected>Select…</option>
           <option>Yes</option>
@@ -139,7 +139,8 @@
       <!-- Upload File -->
       <div>
         <label class="block font-medium">Upload Your File</label>
-        <input type="file" name="file" required accept=".3mf,.stl,.obj,.form,.idea"
+        <input type="file" name="file" required
+               accept=".3mf,.stl,.obj,.form,.idea"
                class="mt-1 block w-full border rounded px-3 py-2"/>
       </div>
 
@@ -153,7 +154,14 @@
   </div>
 
   <script>
-    // ----- color dropdown logic -----
+    // Dynamic date
+    const dateElem = document.getElementById('current-date');
+    if (dateElem) {
+      const opts = { month: 'long', day: 'numeric', year: 'numeric' };
+      dateElem.textContent = new Date().toLocaleDateString('en-US', opts);
+    }
+
+    // Color dropdown logic
     const filamentColors = [
       "True Red","True Orange","Light Orange","True Yellow","Dark Yellow",
       "Lime Green","Green","Forest Green","Blue","Electric Blue",
@@ -183,7 +191,7 @@
     methodSelect.addEventListener('change', updateColorOptions);
     window.addEventListener('DOMContentLoaded', updateColorOptions);
 
-    // ----- discipline "Other" logic -----
+    // Discipline "Other" logic
     const disciplineSelect     = document.getElementById('discipline_select');
     const disciplineOtherDiv   = document.getElementById('discipline_other_div');
     const disciplineOtherInput = document.getElementById('discipline_other');
@@ -196,12 +204,6 @@
 
     disciplineSelect.addEventListener('change', updateDisciplineOther);
     window.addEventListener('DOMContentLoaded', updateDisciplineOther);
-
-        const dateElem = document.getElementById('current-date');
-    if (dateElem) {
-      const opts = { month: 'long', day: 'numeric', year: 'numeric' };
-      dateElem.textContent = new Date().toLocaleDateString('en-US', opts);
-    }
   </script>
 </body>
 </html>
