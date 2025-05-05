@@ -42,17 +42,29 @@
         <p class="text-gray-500 text-xs">We will send you a confirmation link here.</p>
       </div>
 
-      <!-- 3–4 -->
+      <!-- 3–4 Discipline & Course -->
       <div class="grid grid-cols-2 gap-4">
         <div>
           <label class="block font-medium">3. Discipline</label>
-          <select name="discipline" required class="mt-1 block w-full border rounded px-3 py-2">
+          <select name="discipline" id="discipline_select" required
+                  class="mt-1 block w-full border rounded px-3 py-2">
             <option value="" disabled selected>Select…</option>
-            <option>Art</option><option>Architecture</option><option>Landscape Architecture</option>
-            <option>Graphic Design</option><option>Interior Design</option><option>Engineering</option>
+            <option>Art</option>
+            <option>Architecture</option>
+            <option>Landscape Architecture</option>
+            <option>Graphic Design</option>
+            <option>Interior Design</option>
+            <option>Engineering</option>
             <option>Computer Science</option>
+            <option value="Other">Other</option>
           </select>
           <p class="text-gray-500 text-xs">Your department or program.</p>
+          <div id="discipline_other_div" class="mt-2 hidden">
+            <label class="block font-medium">Please specify your discipline</label>
+            <input type="text" name="discipline_other" id="discipline_other"
+                   placeholder="Your discipline"
+                   class="mt-1 block w-full border rounded px-3 py-2"/>
+          </div>
         </div>
         <div>
           <label class="block font-medium">4. Course Number</label>
@@ -68,21 +80,20 @@
         <select name="print_method" id="print_method" required
                 class="mt-1 block w-full border rounded px-3 py-2">
           <option value="" disabled selected>Select…</option>
-          <option>Filament</option><option>Resin</option>
+          <option>Filament</option>
+          <option>Resin</option>
         </select>
         <p class="text-gray-500 text-xs mt-1">
           Choose the appropriate print method for your model:<br><br>
-        
           <strong>Filament:</strong><br>
           &nbsp;&nbsp;○ Description: Good resolution, suitable for simpler models. Fast.<br>
           &nbsp;&nbsp;○ Best For: Medium items.<br>
-          &nbsp;&nbsp;○ Cost: Least expensive.<br><br>      <!-- ← add this -->
-        
+          &nbsp;&nbsp;○ Cost: Least expensive.<br><br>
           <strong>Resin:</strong><br>
           &nbsp;&nbsp;○ Description: Super high resolution and detail. Slow.<br>
           &nbsp;&nbsp;○ Best For: Small items.<br>
           &nbsp;&nbsp;○ Cost: More expensive.<br>
-        </p>        
+        </p>
       </div>
 
       <!-- 6. Print Color -->
@@ -97,17 +108,18 @@
 
       <!-- 7. Scaled Correctly? -->
       <div>
-        <label class="block font-medium">7. Scaled Correctly?</label>
+        <label class="block font-medium">7. Will This Fit On A Printer?</label>
         <select name="scaled" required class="mt-1 block w-full border rounded px-3 py-2">
           <option value="" disabled selected>Select…</option>
-          <option>Yes</option><option>No</option>
+          <option>Yes</option>
+          <option>No</option>
         </select>
         <p class="text-gray-500 text-xs mt-1">
-          <strong>FDM/Filament</strong><br>
+          <strong>FDM/Filament:</strong><br>
           <strong>Prusa MK4S</strong> – Build Plate Size: 9.84" × 8.3" × 8.6" (250 × 210 × 220 mm)<br>
           <strong>Prusa XL</strong> – Build Plate Size: 14.17" × 14.17" × 14.17" (360 × 360 × 360 mm)<br>
           <strong>Raise3D Pro 2 Plus</strong> – Build Plate Size: 12" × 12" × 23.8" (305 × 305 × 605 mm)<br><br>
-          <strong>SLA/Resin</strong><br>
+          <strong>SLA/Resin:</strong><br>
           <strong>Formlabs Form 3</strong> – Build Plate Size: 5.7" × 5.7" × 7.3" (145 × 145 × 175 mm)<br><br>
           Ensure your model’s dimensions are within the specified limits for the printer you plan to use. If your model is too large, consider scaling it down or splitting it into parts. For more guidance, refer to the design guides on our Moodle page or ask for assistance in person.<br><br>
           <strong>If exporting as .STL or .OBJ you MUST scale it down in millimeters BEFORE exporting. If you do not, the scale will not work correctly.</strong>
@@ -119,15 +131,15 @@
         <label class="block font-medium">8. $3 Minimum OK?</label>
         <select name="minimum_ok" required class="mt-1 block w-full border rounded px-3 py-2">
           <option value="" disabled selected>Select…</option>
-          <option>Yes</option><option>No</option>
+          <option>Yes</option>
+          <option>No</option>
         </select>
       </div>
 
       <!-- Upload File -->
       <div>
         <label class="block font-medium">Upload Your File</label>
-        <input type="file" name="file" required
-               accept=".3mf,.stl,.obj,.form,.idea"
+        <input type="file" name="file" required accept=".3mf,.stl,.obj,.form,.idea"
                class="mt-1 block w-full border rounded px-3 py-2"/>
       </div>
 
@@ -141,6 +153,7 @@
   </div>
 
   <script>
+    // ----- color dropdown logic -----
     const filamentColors = [
       "True Red","True Orange","Light Orange","True Yellow","Dark Yellow",
       "Lime Green","Green","Forest Green","Blue","Electric Blue",
@@ -154,25 +167,35 @@
     const colorSelect  = document.getElementById('print_color');
 
     function updateColorOptions() {
-  const method = methodSelect.value;
-  // disable color dropdown if no method chosen
-  colorSelect.disabled = !method;
-  // reset to placeholder
-  colorSelect.innerHTML = '<option value="" disabled selected>Select…</option>';
-  if (!method) return;  // leave it disabled until method exists
-
-  // populate and enable
-  const list = method === 'Filament' ? filamentColors : resinColors;
-  list.forEach(c => {
-    const o = document.createElement('option');
-    o.value = c;
-    o.textContent = c;
-    colorSelect.appendChild(o);
-  });
-}
+      const method = methodSelect.value;
+      colorSelect.disabled = !method;
+      colorSelect.innerHTML = '<option value="" disabled selected>Select…</option>';
+      if (!method) return;
+      const list = method === 'Filament' ? filamentColors : resinColors;
+      list.forEach(c => {
+        const o = document.createElement('option');
+        o.value = c;
+        o.textContent = c;
+        colorSelect.appendChild(o);
+      });
+    }
 
     methodSelect.addEventListener('change', updateColorOptions);
     window.addEventListener('DOMContentLoaded', updateColorOptions);
+
+    // ----- discipline "Other" logic -----
+    const disciplineSelect     = document.getElementById('discipline_select');
+    const disciplineOtherDiv   = document.getElementById('discipline_other_div');
+    const disciplineOtherInput = document.getElementById('discipline_other');
+
+    function updateDisciplineOther() {
+      const isOther = disciplineSelect.value === 'Other';
+      disciplineOtherDiv.classList.toggle('hidden', !isOther);
+      disciplineOtherInput.required = isOther;
+    }
+
+    disciplineSelect.addEventListener('change', updateDisciplineOther);
+    window.addEventListener('DOMContentLoaded', updateDisciplineOther);
   </script>
 </body>
 </html>

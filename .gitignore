@@ -1,0 +1,9 @@
+# ignore environment file
+.env
+
+# ignore virtualenv
+venv/
+__pycache__/
+*.pyc
+*.log
+.vscode/
