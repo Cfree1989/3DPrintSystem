@@ -9,7 +9,7 @@
 <body class="bg-gray-50">
   <div class="max-w-4xl mx-auto px-6 py-10">
     <h1 class="text-3xl font-bold text-purple-800 mb-2">3D Print File Submission</h1>
-    <p class="text-sm text-gray-600 mb-6">May 2, 2025</p>
+    <p id="current-date" class="text-sm text-gray-600 mb-6"></p>
 
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
@@ -108,7 +108,7 @@
 
       <!-- 7. Scaled Correctly? -->
       <div>
-        <label class="block font-medium">7. Will This Fit On A Printer?</label>
+        <label class="block font-medium">7. Will This Fit On a Printer?</label>
         <select name="scaled" required class="mt-1 block w-full border rounded px-3 py-2">
           <option value="" disabled selected>Select…</option>
           <option>Yes</option>
@@ -196,6 +196,12 @@
 
     disciplineSelect.addEventListener('change', updateDisciplineOther);
     window.addEventListener('DOMContentLoaded', updateDisciplineOther);
+
+        const dateElem = document.getElementById('current-date');
+    if (dateElem) {
+      const opts = { month: 'long', day: 'numeric', year: 'numeric' };
+      dateElem.textContent = new Date().toLocaleDateString('en-US', opts);
+    }
   </script>
 </body>
 </html>
