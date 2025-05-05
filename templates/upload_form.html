@@ -62,74 +62,68 @@
         </div>
       </div>
 
-      <!-- 5. Read Guides? -->
+      <!-- 5. Print Method -->
       <div>
-        <label class="block font-medium">5. Read Guides?</label>
-        <select name="read_guides" required class="mt-1 block w-full border rounded px-3 py-2">
-          <option value="" disabled selected>Select…</option>
-          <option>Yes</option><option>No</option>
-        </select>
-      </div>
-
-      <!-- 6–7. Print Method & Color -->
-      <div>
-        <label class="block font-medium">6. Print Method</label>
+        <label class="block font-medium">5. Print Method</label>
         <select name="print_method" id="print_method" required
                 class="mt-1 block w-full border rounded px-3 py-2">
           <option value="" disabled selected>Select…</option>
-          <option>Resin</option><option>Filament</option>
+          <option>Filament</option><option>Resin</option>
         </select>
-        <p class="text-gray-500 text-xs mt-1"><strong>Resin:</strong> High-detail<br><strong>Filament:</strong> Fast & cost-effective</p>
+        <p class="text-gray-500 text-xs mt-1">
+          Choose the appropriate print method for your model:<br><br>
+        
+          <strong>Filament:</strong><br>
+          &nbsp;&nbsp;○ Description: Good resolution, suitable for simpler models. Fast.<br>
+          &nbsp;&nbsp;○ Best For: Medium items.<br>
+          &nbsp;&nbsp;○ Cost: Least expensive.<br><br>      <!-- ← add this -->
+        
+          <strong>Resin:</strong><br>
+          &nbsp;&nbsp;○ Description: Super high resolution and detail. Slow.<br>
+          &nbsp;&nbsp;○ Best For: Small items.<br>
+          &nbsp;&nbsp;○ Cost: More expensive.<br>
+        </p>        
       </div>
+
+      <!-- 6. Print Color -->
       <div>
-        <label class="block font-medium">7. Print Color</label>
-        <select name="print_color" id="print_color" required
+        <label class="block font-medium">6. Print Color</label>
+        <select name="print_color" id="print_color" required disabled
                 class="mt-1 block w-full border rounded px-3 py-2">
           <option value="" disabled selected>Select…</option>
         </select>
         <p class="text-gray-500 text-xs">Options depend on method chosen.</p>
       </div>
 
-      <!-- 8–10 -->
-      <div class="grid grid-cols-3 gap-4">
-        <div>
-          <label class="block font-medium">8. Scaled Correctly?</label>
-          <select name="scaled" required class="mt-1 block w-full border rounded px-3 py-2">
-            <option value="" disabled selected>Select…</option>
-            <option>Yes</option><option>No</option>
-          </select>
-        </div>
-        <div>
-          <label class="block font-medium">9. Simplified?</label>
-          <select name="simplified" required class="mt-1 block w-full border rounded px-3 py-2">
-            <option value="" disabled selected>Select…</option>
-            <option>Yes</option><option>No</option>
-          </select>
-        </div>
-        <div>
-          <label class="block font-medium">10. Overhangs?</label>
-          <select name="overhangs" required class="mt-1 block w-full border rounded px-3 py-2">
-            <option value="" disabled selected>Select…</option>
-            <option>Yes</option><option>No</option>
-          </select>
-        </div>
+      <!-- 7. Scaled Correctly? -->
+      <div>
+        <label class="block font-medium">7. Scaled Correctly?</label>
+        <select name="scaled" required class="mt-1 block w-full border rounded px-3 py-2">
+          <option value="" disabled selected>Select…</option>
+          <option>Yes</option><option>No</option>
+        </select>
+        <p class="text-gray-500 text-xs mt-1">
+          <strong>FDM/Filament</strong><br>
+          <strong>Prusa MK4S</strong> – Build Plate Size: 9.84" × 8.3" × 8.6" (250 × 210 × 220 mm)<br>
+          <strong>Prusa XL</strong> – Build Plate Size: 14.17" × 14.17" × 14.17" (360 × 360 × 360 mm)<br>
+          <strong>Raise3D Pro 2 Plus</strong> – Build Plate Size: 12" × 12" × 23.8" (305 × 305 × 605 mm)<br><br>
+          <strong>SLA/Resin</strong><br>
+          <strong>Formlabs Form 3</strong> – Build Plate Size: 5.7" × 5.7" × 7.3" (145 × 145 × 175 mm)<br><br>
+          Ensure your model’s dimensions are within the specified limits for the printer you plan to use. If your model is too large, consider scaling it down or splitting it into parts. For more guidance, refer to the design guides on our Moodle page or ask for assistance in person.<br><br>
+          <strong>If exporting as .STL or .OBJ you MUST scale it down in millimeters BEFORE exporting. If you do not, the scale will not work correctly.</strong>
+        </p>
       </div>
 
-      <!-- 11–12 & File -->
+      <!-- 8. $3 Minimum OK? -->
       <div>
-        <label class="block font-medium">11. File Type</label>
-        <select name="filetype" required class="mt-1 block w-full border rounded px-3 py-2">
-          <option value="" disabled selected>Select…</option>
-          <option>3MF</option><option>STL</option><option>OBJ</option>
-        </select>
-      </div>
-      <div>
-        <label class="block font-medium">12. $3 Minimum OK?</label>
+        <label class="block font-medium">8. $3 Minimum OK?</label>
         <select name="minimum_ok" required class="mt-1 block w-full border rounded px-3 py-2">
           <option value="" disabled selected>Select…</option>
           <option>Yes</option><option>No</option>
         </select>
       </div>
+
+      <!-- Upload File -->
       <div>
         <label class="block font-medium">Upload Your File</label>
         <input type="file" name="file" required
@@ -160,15 +154,22 @@
     const colorSelect  = document.getElementById('print_color');
 
     function updateColorOptions() {
-      colorSelect.innerHTML = '<option value="" disabled selected>Select…</option>';
-      const list = methodSelect.value === 'Filament' ? filamentColors : resinColors;
-      list.forEach(c => {
-        const o = document.createElement('option');
-        o.value = c;
-        o.textContent = c;
-        colorSelect.appendChild(o);
-      });
-    }
+  const method = methodSelect.value;
+  // disable color dropdown if no method chosen
+  colorSelect.disabled = !method;
+  // reset to placeholder
+  colorSelect.innerHTML = '<option value="" disabled selected>Select…</option>';
+  if (!method) return;  // leave it disabled until method exists
+
+  // populate and enable
+  const list = method === 'Filament' ? filamentColors : resinColors;
+  list.forEach(c => {
+    const o = document.createElement('option');
+    o.value = c;
+    o.textContent = c;
+    colorSelect.appendChild(o);
+  });
+}
 
     methodSelect.addEventListener('change', updateColorOptions);
     window.addEventListener('DOMContentLoaded', updateColorOptions);
