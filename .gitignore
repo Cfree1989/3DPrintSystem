@@ -14,3 +14,5 @@ Instance/jobs.db
 # Adjust path if your jobs root is not directly under project root
 jobs/
 
+node_modules/
+
