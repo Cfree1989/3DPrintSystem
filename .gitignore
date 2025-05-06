@@ -16,3 +16,15 @@ jobs/
 
 node_modules/
 
+# Compiled Tailwind output
+app/static/css/build.css
+
+# Job folders (Uploaded, Pending, etc.)
+ReadytoPrint/
+Uploaded/
+Pending/
+Completed/
+PaidPickedUp/
+Printing/
+Rejected/
+
