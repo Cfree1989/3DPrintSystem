@@ -1,158 +1,138 @@
-<!-- templates/upload_form.html -->
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>3D Print File Submission</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="bg-gray-50">
-  <div class="max-w-4xl mx-auto px-6 py-10">
-    <h1 class="text-3xl font-bold text-purple-800 mb-2">3D Print File Submission</h1>
-    <p id="current-date" class="text-sm text-gray-600 mb-6"></p>
+{% extends 'base.html' %}
+{% block title %}3D Print File Submission{% endblock %}
+{% block content %}
+  <h1 class="text-3xl font-bold text-purple-800 mb-2">3D Print File Submission</h1>
+  <p id="current-date" class="text-sm text-gray-600 mb-6"></p>
+  {% include 'partials/_flash_messages.html' %}
+  <form action="{{ url_for('submit.submit') }}" method="post" enctype="multipart/form-data"
+        class="bg-white p-6 rounded shadow space-y-6 text-sm">
+    <!-- 1. Name -->
+    <div>
+      <label class="block font-medium">1. First and Last Name</label>
+      <input name="name" type="text" required placeholder="Jane Doe"
+             class="mt-1 block w-full border rounded px-3 py-2"/>
+      <p class="text-gray-500 text-xs">Enter your full name as you want it to appear.</p>
+    </div>
 
-    {% with messages = get_flashed_messages(with_categories=true) %}
-      {% if messages %}
-        <div class="mb-6 space-y-2">
-          {% for category, msg in messages %}
-            <div class="p-3 rounded {{ 'bg-green-100 text-green-800' if category=='success' else 'bg-red-100 text-red-800' }}">
-              {{ msg }}
-            </div>
-          {% endfor %}
-        </div>
-      {% endif %}
-    {% endwith %}
+    <!-- 2. LSU Email -->
+    <div>
+      <label class="block font-medium">2. LSU Email</label>
+      <input name="email" type="email" required placeholder="jdoe@lsu.edu"
+             class="mt-1 block w-full border rounded px-3 py-2"/>
+      <p class="text-gray-500 text-xs">We will send you a confirmation link here.</p>
+    </div>
 
-    <form action="{{ url_for('submit') }}" method="post" enctype="multipart/form-data"
-          class="bg-white p-6 rounded shadow space-y-6 text-sm">
-
-      <!-- 1. Name -->
+    <!-- 3–4. Discipline & Course Number -->
+    <div class="grid grid-cols-2 gap-4">
       <div>
-        <label class="block font-medium">1. First and Last Name</label>
-        <input name="name" type="text" required placeholder="Jane Doe"
-               class="mt-1 block w-full border rounded px-3 py-2"/>
-        <p class="text-gray-500 text-xs">Enter your full name as you want it to appear.</p>
-      </div>
-
-      <!-- 2. LSU Email -->
-      <div>
-        <label class="block font-medium">2. LSU Email</label>
-        <input name="email" type="email" required placeholder="jdoe@lsu.edu"
-               class="mt-1 block w-full border rounded px-3 py-2"/>
-        <p class="text-gray-500 text-xs">We will send you a confirmation link here.</p>
-      </div>
-
-      <!-- 3–4. Discipline & Course Number -->
-      <div class="grid grid-cols-2 gap-4">
-        <div>
-          <label class="block font-medium">3. Discipline</label>
-          <select name="discipline" id="discipline_select" required
-                  class="mt-1 block w-full border rounded px-3 py-2">
-            <option value="" disabled selected>Select…</option>
-            <option>Art</option>
-            <option>Architecture</option>
-            <option>Landscape Architecture</option>
-            <option>Graphic Design</option>
-            <option>Interior Design</option>
-            <option>Engineering</option>
-            <option>Computer Science</option>
-            <option value="Other">Other</option>
-          </select>
-          <p class="text-gray-500 text-xs">Your department or program.</p>
-          <div id="discipline_other_div" class="mt-2 hidden">
-            <label class="block font-medium">Please specify your discipline</label>
-            <input type="text" name="discipline_other" id="discipline_other"
-                   placeholder="Your discipline"
-                   class="mt-1 block w-full border rounded px-3 py-2"/>
-          </div>
-        </div>
-        <div>
-          <label class="block font-medium">4. Course Number</label>
-          <input name="course" type="text" required placeholder="ARCH 5004"
+        <label class="block font-medium">3. Discipline</label>
+        <select name="discipline" id="discipline_select" required
+                class="mt-1 block w-full border rounded px-3 py-2">
+          <option value="" disabled selected>Select…</option>
+          <option>Art</option>
+          <option>Architecture</option>
+          <option>Landscape Architecture</option>
+          <option>Graphic Design</option>
+          <option>Interior Design</option>
+          <option>Engineering</option>
+          <option>Computer Science</option>
+          <option value="Other">Other</option>
+        </select>
+        <p class="text-gray-500 text-xs">Your department or program.</p>
+        <div id="discipline_other_div" class="mt-2 hidden">
+          <label class="block font-medium">Please specify your discipline</label>
+          <input type="text" name="discipline_other" id="discipline_other"
+                 placeholder="Your discipline"
                  class="mt-1 block w-full border rounded px-3 py-2"/>
-          <p class="text-gray-500 text-xs">e.g. “ARCH 5004”</p>
         </div>
       </div>
-
-      <!-- 5. Print Method -->
       <div>
-        <label class="block font-medium">5. Print Method</label>
-        <select name="print_method" id="print_method" required
-                class="mt-1 block w-full border rounded px-3 py-2">
-          <option value="" disabled selected>Select…</option>
-          <option>Filament</option>
-          <option>Resin</option>
-        </select>
-        <p class="text-gray-500 text-xs mt-1">
-          Choose the appropriate print method for your model:<br><br>
-          <strong>Filament:</strong><br>
-          &nbsp;&nbsp;○ Description: Good resolution, suitable for simpler models. Fast.<br>
-          &nbsp;&nbsp;○ Best For: Medium items.<br>
-          &nbsp;&nbsp;○ Cost: Least expensive.<br><br>
-          <strong>Resin:</strong><br>
-          &nbsp;&nbsp;○ Description: Super high resolution and detail. Slow.<br>
-          &nbsp;&nbsp;○ Best For: Small items.<br>
-          &nbsp;&nbsp;○ Cost: More expensive.<br>
-        </p>
-      </div>
-
-      <!-- 6. Print Color -->
-      <div>
-        <label class="block font-medium">6. Print Color</label>
-        <select name="print_color" id="print_color" required disabled
-                class="mt-1 block w-full border rounded px-3 py-2">
-          <option value="" disabled selected>Select…</option>
-        </select>
-        <p class="text-gray-500 text-xs">Options depend on method chosen.</p>
-      </div>
-
-      <!-- 7. Will This Fit On A Printer? -->
-      <div>
-        <label class="block font-medium">7. Will This Fit On A Printer?</label>
-        <select name="scaled" required class="mt-1 block w-full border rounded px-3 py-2">
-          <option value="" disabled selected>Select…</option>
-          <option>Yes</option>
-          <option>No</option>
-        </select>
-        <p class="text-gray-500 text-xs mt-1">
-          <strong>FDM/Filament:</strong><br>
-          <strong>Prusa MK4S</strong> – Build Plate Size: 9.84" × 8.3" × 8.6" (250 × 210 × 220 mm)<br>
-          <strong>Prusa XL</strong> – Build Plate Size: 14.17" × 14.17" × 14.17" (360 × 360 × 360 mm)<br>
-          <strong>Raise3D Pro 2 Plus</strong> – Build Plate Size: 12" × 12" × 23.8" (305 × 305 × 605 mm)<br><br>
-          <strong>SLA/Resin:</strong><br>
-          <strong>Formlabs Form 3</strong> – Build Plate Size: 5.7" × 5.7" × 7.3" (145 × 145 × 175 mm)<br><br>
-          Ensure your model’s dimensions are within the specified limits for the printer you plan to use. If your model is too large, consider scaling it down or splitting it into parts. For more guidance, refer to the design guides on our Moodle page or ask for assistance in person.<br><br>
-          <strong>If exporting as .STL or .OBJ you MUST scale it down in millimeters BEFORE exporting. If you do not, the scale will not work correctly.</strong>
-        </p>
-      </div>
-
-      <!-- 8. $3 Minimum OK? -->
-      <div>
-        <label class="block font-medium">8. $3 Minimum OK?</label>
-        <select name="minimum_ok" required class="mt-1 block w-full border rounded px-3 py-2">
-          <option value="" disabled selected>Select…</option>
-          <option>Yes</option>
-          <option>No</option>
-        </select>
-      </div>
-
-      <!-- Upload File -->
-      <div>
-        <label class="block font-medium">Upload Your File</label>
-        <input type="file" name="file" required
-               accept=".3mf,.stl,.obj,.form,.idea"
+        <label class="block font-medium">4. Course Number</label>
+        <input name="course" type="text" required placeholder="ARCH 5004"
                class="mt-1 block w-full border rounded px-3 py-2"/>
+        <p class="text-gray-500 text-xs">e.g. “ARCH 5004”</p>
       </div>
+    </div>
 
-      <div class="pt-4">
-        <button type="submit"
-                class="bg-purple-700 hover:bg-purple-800 text-white px-4 py-2 rounded font-semibold">
-          Submit Print Request
-        </button>
-      </div>
-    </form>
-  </div>
+    <!-- 5. Print Method -->
+    <div>
+      <label class="block font-medium">5. Print Method</label>
+      <select name="print_method" id="print_method" required
+              class="mt-1 block w-full border rounded px-3 py-2">
+        <option value="" disabled selected>Select…</option>
+        <option>Filament</option>
+        <option>Resin</option>
+      </select>
+      <p class="text-gray-500 text-xs mt-1">
+        Choose the appropriate print method for your model:<br><br>
+        <strong>Filament:</strong><br>
+        &nbsp;&nbsp;○ Description: Good resolution, suitable for simpler models. Fast.<br>
+        &nbsp;&nbsp;○ Best For: Medium items.<br>
+        &nbsp;&nbsp;○ Cost: Least expensive.<br><br>
+        <strong>Resin:</strong><br>
+        &nbsp;&nbsp;○ Description: Super high resolution and detail. Slow.<br>
+        &nbsp;&nbsp;○ Best For: Small items.<br>
+        &nbsp;&nbsp;○ Cost: More expensive.<br>
+      </p>
+    </div>
 
+    <!-- 6. Print Color -->
+    <div>
+      <label class="block font-medium">6. Print Color</label>
+      <select name="print_color" id="print_color" required disabled
+              class="mt-1 block w-full border rounded px-3 py-2">
+        <option value="" disabled selected>Select…</option>
+      </select>
+      <p class="text-gray-500 text-xs">Options depend on method chosen.</p>
+    </div>
+
+    <!-- 7. Will This Fit On A Printer? -->
+    <div>
+      <label class="block font-medium">7. Will This Fit On A Printer?</label>
+      <select name="scaled" required class="mt-1 block w-full border rounded px-3 py-2">
+        <option value="" disabled selected>Select…</option>
+        <option>Yes</option>
+        <option>No</option>
+      </select>
+      <p class="text-gray-500 text-xs mt-1">
+        <strong>FDM/Filament:</strong><br>
+        <strong>Prusa MK4S</strong> – Build Plate Size: 9.84" × 8.3" × 8.6" (250 × 210 × 220 mm)<br>
+        <strong>Prusa XL</strong> – Build Plate Size: 14.17" × 14.17" × 14.17" (360 × 360 × 360 mm)<br>
+        <strong>Raise3D Pro 2 Plus</strong> – Build Plate Size: 12" × 12" × 23.8" (305 × 305 × 605 mm)<br><br>
+        <strong>SLA/Resin:</strong><br>
+        <strong>Formlabs Form 3</strong> – Build Plate Size: 5.7" × 5.7" × 7.3" (145 × 145 × 175 mm)<br><br>
+        Ensure your model's dimensions are within the specified limits for the printer you plan to use. If your model is too large, consider scaling it down or splitting it into parts. For more guidance, refer to the design guides on our Moodle page or ask for assistance in person.<br><br>
+        <strong>If exporting as .STL or .OBJ you MUST scale it down in millimeters BEFORE exporting. If you do not, the scale will not work correctly.</strong>
+      </p>
+    </div>
+
+    <!-- 8. $3 Minimum OK? -->
+    <div>
+      <label class="block font-medium">8. $3 Minimum OK?</label>
+      <select name="minimum_ok" required class="mt-1 block w-full border rounded px-3 py-2">
+        <option value="" disabled selected>Select…</option>
+        <option>Yes</option>
+        <option>No</option>
+      </select>
+    </div>
+
+    <!-- Upload File -->
+    <div>
+      <label class="block font-medium">Upload Your File</label>
+      <input type="file" name="file" required
+             accept=".3mf,.stl,.obj,.form,.idea"
+             class="mt-1 block w-full border rounded px-3 py-2"/>
+    </div>
+
+    <div class="pt-4">
+      <button type="submit"
+              class="bg-purple-700 hover:bg-purple-800 text-white px-4 py-2 rounded font-semibold">
+        Submit Print Request
+      </button>
+    </div>
+  </form>
+{% endblock %}
+{% block scripts %}
   <script>
     // Dynamic date
     const dateElem = document.getElementById('current-date');
@@ -205,5 +185,4 @@
     disciplineSelect.addEventListener('change', updateDisciplineOther);
     window.addEventListener('DOMContentLoaded', updateDisciplineOther);
   </script>
-</body>
-</html>
+{% endblock %}

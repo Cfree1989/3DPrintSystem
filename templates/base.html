@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>{% block title %}3D Print System{% endblock %}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  {% block head %}{% endblock %}
+</head>
+<body class="bg-gray-50 min-h-screen flex flex-col">
+  <main class="flex-1 px-6 py-10">
+    {% block content %}{% endblock %}
+  </main>
+  {% include 'partials/_footer.html' %}
+  {% block scripts %}{% endblock %}
+</body>
+</html> 
