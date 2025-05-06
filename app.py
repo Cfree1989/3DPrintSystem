@@ -1,187 +1,34 @@
+from flask import Flask
+from config import Config
+from extensions import db
+from models import Job
+from routes.dashboard_routes import dashboard_bp
+from routes.submit_routes import submit_bp
+from routes.approval_routes import approval_bp
+from routes.move_routes import move_bp
+from routes.file_routes import file_bp
 import os
-import shutil
-from flask import Flask, render_template, request, url_for, redirect, jsonify
-from flask_sqlalchemy import SQLAlchemy
-from filelock import FileLock
-from email_util import send_email
 
 app = Flask(__name__, template_folder='Templates')
+app.config.from_object(Config)
 
-# Ensure instance folder exists and configure SQLite path
-instance_dir = os.path.join(app.root_path, 'instance')
-os.makedirs(instance_dir, exist_ok=True)
-db_path = os.path.join(instance_dir, 'jobs.db')
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + db_path
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+db.init_app(app)
 
-db = SQLAlchemy(app)
-
-# Status folders
-JOBS_ROOT = os.path.join(os.getcwd(), 'jobs')
-UPLOADED_FOLDER = 'Uploaded'
-PENDING_FOLDER = 'Pending'
-REJECTED_FOLDER = 'Rejected'
-READY_TO_PRINT_FOLDER = 'ReadyToPrint'
-PRINTING_FOLDER = 'Printing'
-COMPLETED_FOLDER = 'Completed'
-PAID_PICKED_UP_FOLDER = 'PaidPickedUp'
-
-# Ensure all folders exist
-for folder in [
-    UPLOADED_FOLDER, PENDING_FOLDER, REJECTED_FOLDER,
-    READY_TO_PRINT_FOLDER, PRINTING_FOLDER, COMPLETED_FOLDER,
-    PAID_PICKED_UP_FOLDER
-]:
-    os.makedirs(os.path.join(JOBS_ROOT, folder), exist_ok=True)
-
-class Job(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    filename = db.Column(db.String, nullable=False)
-    name = db.Column(db.String, nullable=False)
-    email = db.Column(db.String, nullable=False)
-    status = db.Column(db.String, nullable=False, default=UPLOADED_FOLDER)
-    weight = db.Column(db.Float, nullable=True)
-    time_hours = db.Column(db.Integer, nullable=True)
-    time_minutes = db.Column(db.Integer, nullable=True)
-    printer = db.Column(db.String, nullable=True)
-    color = db.Column(db.String, nullable=True)
-    material = db.Column(db.String, nullable=True)
-    cost = db.Column(db.Float, nullable=True)
-    student_confirmed = db.Column(db.Boolean, default=False, nullable=False)
-    rejection_reasons = db.Column(db.String, nullable=True)
+# Ensure instance and job status folders exist
+os.makedirs(Config.INSTANCE_DIR, exist_ok=True)
+for folder in Config.STATUS_FOLDERS:
+    os.makedirs(os.path.join(Config.JOBS_ROOT, folder), exist_ok=True)
 
 @app.before_request
 def create_tables():
     db.create_all()
 
-@app.route('/')
-@app.route('/dashboard')
-def dashboard():
-    statuses = [
-        UPLOADED_FOLDER, PENDING_FOLDER, READY_TO_PRINT_FOLDER,
-        PRINTING_FOLDER, COMPLETED_FOLDER, PAID_PICKED_UP_FOLDER,
-        REJECTED_FOLDER
-    ]
-    jobs_by_status = {status: Job.query.filter_by(status=status).all() for status in statuses}
-    return render_template('dashboard.html', jobs_by_status=jobs_by_status)
-
-@app.route('/submit', methods=['GET', 'POST'])
-def submit():
-    if request.method == 'POST':
-        uploaded = request.files.get('file')
-        if not uploaded:
-            return redirect(url_for('dashboard'))
-
-        fname = uploaded.filename
-        job = Job(
-            filename=fname,
-            name=request.form.get('name'),
-            email=request.form.get('email'),
-            status=UPLOADED_FOLDER
-        )
-        db.session.add(job)
-        db.session.commit()
-
-        dest = os.path.join(JOBS_ROOT, UPLOADED_FOLDER, fname)
-        uploaded.save(dest)
-        return redirect(url_for('dashboard'))
-    return render_template('upload_form.html')
-
-@app.route('/approve', methods=['POST'])
-def approve():
-    job_id = request.form.get('job_id')
-    job = Job.query.get_or_404(int(job_id))
-
-    job.weight = float(request.form.get('weight', 0))
-    job.time_hours = int(request.form.get('time_hours', 0))
-    job.time_minutes = int(request.form.get('time_minutes', 0))
-    job.printer = request.form.get('printer')
-    # Calculate cost
-    if job.printer and 'formlabs' in job.printer.lower():
-        job.cost = job.weight * 0.20
-    else:
-        job.cost = job.weight * 0.10
-
-    # Move file: Uploaded -> Pending
-    src = os.path.join(JOBS_ROOT, UPLOADED_FOLDER, job.filename)
-    dst = os.path.join(JOBS_ROOT, PENDING_FOLDER, job.filename)
-    with FileLock(src + '.lock'):
-        shutil.move(src, dst)
-    job.status = PENDING_FOLDER
-    db.session.commit()
-
-    # Send confirmation email to student
-    link = url_for('confirm_print', job_id=job.id, _external=True)
-    body = f"""Your print request is almost ready. Please confirm here:
-
-{link}
-
-Cost: ${job.cost:.2f}
-Time: {job.time_hours}h {job.time_minutes}m
-Color: {job.color or 'N/A'}
-Material: {job.material or 'N/A'}"""
-    send_email(job.email, "Confirm your 3D print request", body)
-    return redirect(url_for('dashboard'))
-
-@app.route('/confirm_print/<int:job_id>', methods=['GET', 'POST'])
-def confirm_print(job_id):
-    job = Job.query.get_or_404(job_id)
-    if job.student_confirmed:
-        return render_template('Confirmation/confirmation_already.html', job=job)
-    if request.method == 'POST':
-        # Move file: Pending -> ReadyToPrint
-        src = os.path.join(JOBS_ROOT, PENDING_FOLDER, job.filename)
-        dst = os.path.join(JOBS_ROOT, READY_TO_PRINT_FOLDER, job.filename)
-        with FileLock(src + '.lock'):
-            shutil.move(src, dst)
-
-        job.status = READY_TO_PRINT_FOLDER
-        job.student_confirmed = True
-        db.session.commit()
-        return render_template('Confirmation/confirmation_success.html', job=job)
-    return render_template('Confirmation/confirmation.html', job=job)
-
-@app.route('/reject', methods=['POST'])
-def reject():
-    job_id = request.form.get('job_id')
-    job = Job.query.get_or_404(int(job_id))
-    reasons = request.form.getlist('reasons')
-    job.rejection_reasons = '; '.join(reasons)
-
-    src = os.path.join(JOBS_ROOT, UPLOADED_FOLDER, job.filename)
-    dst = os.path.join(JOBS_ROOT, REJECTED_FOLDER, job.filename)
-    with FileLock(src + '.lock'):
-        shutil.move(src, dst)
-
-    job.status = REJECTED_FOLDER
-    db.session.commit()
-
-    body = "Your 3D print request was rejected for these reasons:\n\n" + "\n".join(f"- {r}" for r in reasons)
-    send_email(job.email, "Your print request was rejected", body)
-    return jsonify(success=True)
-
-@app.route('/move/<int:job_id>/<to_status>', methods=['POST'])
-def move(job_id, to_status):
-    job = Job.query.get_or_404(job_id)
-    src = os.path.join(JOBS_ROOT, job.status, job.filename)
-    dst = os.path.join(JOBS_ROOT, to_status, job.filename)
-    with FileLock(src + '.lock'):
-        shutil.move(src, dst)
-    job.status = to_status
-    db.session.commit()
-    return jsonify(success=True)
-
-from flask import send_file, abort
-
-@app.route('/open_file/<int:job_id>')
-def open_file(job_id):
-    job = Job.query.get_or_404(job_id)
-    # Build path to the file in its current status folder
-    path = os.path.join(JOBS_ROOT, job.status, job.filename)
-    if not os.path.exists(path):
-        abort(404)
-    # Let Flask send it inline in the browser
-    return send_file(path, as_attachment=False)
+# Register blueprints
+app.register_blueprint(dashboard_bp)
+app.register_blueprint(submit_bp)
+app.register_blueprint(approval_bp)
+app.register_blueprint(move_bp)
+app.register_blueprint(file_bp)
 
 if __name__ == '__main__':
     app.run()
