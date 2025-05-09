@@ -6,6 +6,7 @@ class Config:
     DB_PATH = os.path.join(INSTANCE_DIR, 'jobs.db')
     SQLALCHEMY_DATABASE_URI = 'sqlite:///' + DB_PATH
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+    SECRET_KEY = os.environ.get('SECRET_KEY') or 'your-default-secret-key-for-dev'
 
     JOBS_ROOT = os.path.join(BASE_DIR, 'jobs')
     UPLOADED_FOLDER = 'Uploaded'

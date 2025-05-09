@@ -1,3 +1,40 @@
+# Detailed Project Purpose Summary:
+
+This project is dedicated to creating a **robust and user-centric Flask-based web application designed to comprehensively manage the 3D print job workflow within an academic or makerspace setting.** It addresses common challenges such as disorganized submission processes, lack of transparency in job status, difficulties in tracking file versions post-slicing, and inefficient communication between students and staff.
+
+The system's core purpose is to deliver:
+
+1.  **A Streamlined and Intuitive Submission Process for Students:**
+    *   Students will utilize a clear web form to upload their 3D model files (supporting common formats like `.stl`, `.obj`, and `.3mf`).
+    *   They will provide essential metadata including their name, email, and desired print parameters (like print method/printer type and color).
+    *   The system will automatically rename uploaded files to a standardized, traceable format (`FirstAndLastName_PrintMethod_Color_SimpleJobID`) upon submission.
+    *   Students will receive email notifications at key stages, such as when their job is approved for student confirmation (including estimated cost and time), when it's rejected (with reasons), and when it's completed.
+
+2.  **An Efficient and Informative Management Dashboard for Staff:**
+    *   Staff will have access to a central dashboard that displays all submitted jobs, clearly organized by status (e.g., Uploaded, Pending, ReadyToPrint).
+    *   Each job entry will feature a thumbnail generated from the original student upload for quick visual identification.
+    *   Staff can view all job details, input critical print parameters (like weight, material, actual print time), calculate and record costs, and manage transitions between job statuses.
+    *   A key function is the "Open File" button, which allows staff to directly open the *current authoritative file* for a job in their preferred slicer software.
+
+3.  **Sophisticated and Accurate File Lifecycle Management:**
+    *   The system acknowledges the critical transformation files undergo during the slicing process. While the student uploads an initial design file, the **output from the staff's slicer software (e.g., a `.gcode`, `.3mf`, `.form`, or `.idea` file) becomes the new authoritative file** for printing.
+    *   The system must track this change, updating its internal reference to the job's filename and location. The "Open File" button will always point to this latest authoritative version, ensuring staff always work with the correct, print-ready file. This mechanism is designed to prevent version conflicts and confusion.
+    *   Original uploaded files might be archived or replaced once a definitive sliced file is generated and approved.
+
+4.  **Clear Communication and Workflow Transparency:**
+    *   The defined job statuses (Uploaded, Pending, Rejected, ReadyToPrint, Printing, Completed, PaidPickedUp) provide unambiguous progress tracking for everyone involved.
+    *   On-site flash messages will provide immediate feedback for user actions.
+    *   Email notifications ensure users are kept informed without needing to constantly check the system.
+
+5.  **A Secure, Maintainable, and Extensible Platform:**
+    *   Built using Flask, SQLAlchemy for database interaction (with SQLite initially), and Flask-Migrate for schema management, ensuring a solid backend foundation.
+    *   The frontend will leverage Tailwind CSS for styling and Alpine.js for light interactivity, aiming for a clean and responsive user experience.
+    *   The architecture is designed with future enhancements in mind, such as full user authentication (Flask-Login), more detailed reporting, advanced cost calculation APIs, and potentially more interactive 3D previews.
+
+In essence, the project aims to replace potentially ad-hoc or manual 3D print request systems with a **centralized, digitally managed, and workflow-driven platform.** It prioritizes clarity, efficiency, and accurate file tracking, especially addressing the complexities of file changes introduced by slicer software, ultimately improving the experience for both students requesting prints and the staff managing the printing service.
+
+---
+
 ## 1 · Project Setup (complete checklist)
 
 | Item                | Command / File                                                                                                                                                       | Notes                                          |
@@ -177,9 +214,25 @@ Every route that changes status wraps file operations with this helper.
 - [x] .github/workflows/ci.yml created with test and tailwind jobs
 - [x] All changes pushed to GitHub main branch
 - [ ] Awaiting CI verification on GitHub
+- [x] Notifications & Feedback: Email notifications and flash-message UX (COMPLETE)
+- [x] File Previews & Thumbnails: Thumbnail generation (COMPLETE)
+- [ ] User Management: Password-reset and account-management flows (IN PROGRESS)
+- [x] Data Migrations & Backups: Flask-Migrate setup refined; backup/restore procedures documented (INITIAL PHASE COMPLETE)
+- [x] Logging, Monitoring & Metrics: Basic file logging implemented, added specific logs to submit_routes (INITIAL PHASE COMPLETE)
+- [x] Security Enhancements: Basic security headers implemented and CSP adjusted (INITIAL PHASE COMPLETE)
+- [x] Testing Gaps: Initial unit tests for submit_routes created and passing (INITIAL PHASE COMPLETE)
+- [ ] Deployment, Scaling & Secrets: Docker and secrets management
+- [ ] Maintenance & Cleanup: Automated purge and disk-space monitoring
 
 ### Executor's Feedback or Assistance Requests
-- All recommended changes were executed: node_modules ignored, line ending warnings addressed, and all files pushed to GitHub. Next, check the Actions tab on GitHub to verify CI runs and passes.
+- Notifications & Feedback task is complete and tested.
+- File Previews & Thumbnails: Thumbnail generation, display, and serving are now complete and tested.
+- Data Migrations & Backups: Flask-Migrate setup has been refined. Procedures for SQLite database backup and restore have been documented.
+- Logging, Monitoring & Metrics: Basic file logging is in place and key submission events are now logged.
+- Security Enhancements: Basic security headers (including CSP) are active. CSP was adjusted to ensure site functionality with CDN-based Tailwind.
+- Testing Gaps: Initial unit tests for submit_routes (GET, successful POST, POST with no file) are implemented and passing.
+- User Management: Task taken off hold. Initial plan is to define User model, set up Flask-Login, and basic auth routes. Session ending for the day; work will resume here.
+- Awaiting Planner direction for the next major task area upon session resumption.
 
 ## 9 · Systemd/Waitress Service (Windows Service similar via NSSM)
 
@@ -305,6 +358,62 @@ The project is a Flask-based 3D print system that requires enhancements in user 
    - Establish backup and restore procedures.
    - Success Criteria: Data integrity and security are maintained.
 
+   **SQLite Backup Procedures (`instance/jobs.db`):**
+
+   Regular backups are crucial for data safety. The primary database file is `instance/jobs.db`.
+
+   **Method 1: Direct File Copy (Simple)**
+   - **Procedure:** Directly copy the `instance/jobs.db` file to a secure backup location (e.g., another drive, cloud storage).
+   - **Pros:** Very simple to implement and automate with basic scripting.
+   - **Cons/Considerations:**
+     - To ensure absolute consistency, it's safest to perform the copy when the application is not running or is in a state with no database writes. For a low-traffic internal application, briefly stopping the Flask app, copying, and restarting might be acceptable.
+     - If copying a live database file, there's a small chance of catching the database in the middle of a transaction, potentially leading to a slightly inconsistent backup. SQLite is generally resilient to this, but it's a minor risk.
+
+   **Method 2: SQLite Online Backup (Recommended for Live Backups)**
+   - **Procedure:** Use the SQLite command-line interface (CLI) tool (`sqlite3`) and its `.backup` command. This performs a live backup, ensuring consistency even while the application is running.
+     ```bash
+     sqlite3 instance/jobs.db ".backup '/path/to/your/backup_location/jobs_backup_YYYYMMDD.db'"
+     ```
+     Replace `/path/to/your/backup_location/jobs_backup_YYYYMMDD.db` with your desired backup path and naming convention.
+   - **Pros:** Ensures a consistent snapshot of the database without needing to stop the application. Preferred method for live systems.
+   - **Cons:** Requires `sqlite3` CLI tool to be available on the system where backups are performed.
+
+   **Backup Frequency and Retention:**
+   - **Frequency:** Should be determined by how much data loss is acceptable. Daily backups are common for many applications. For critical systems, more frequent backups might be needed.
+   - **Retention:** Decide how long to keep backups (e.g., 7 daily backups, 4 weekly, 12 monthly). This depends on storage capacity and recovery needs.
+   - **Storage:** Store backups in a separate physical location from the production server if possible (e.g., different disk, network share, cloud storage) to protect against hardware failure.
+
+   **SQLite Restore Procedures (`instance/jobs.db`):**
+
+   Restoring a SQLite database from a backup file is typically straightforward.
+
+   **Procedure:**
+   1.  **Stop the Application:** Ensure the Flask application is completely stopped to prevent any attempts to access or modify the database during the restore process. This is critical to avoid corruption or inconsistent state.
+       ```bash
+       # (Example: If running via command line, Ctrl+C in the terminal)
+       # (If running as a service, use the appropriate service stop command, e.g., systemctl stop your-app-service)
+       ```
+   2.  **Locate the Backup File:** Identify the backup file you wish to restore (e.g., `jobs_backup_YYYYMMDD.db`).
+   3.  **Replace the Database File:**
+       *   Optional but Recommended: Rename the existing `instance/jobs.db` file (e.g., to `instance/jobs.db.before_restore` or `instance/jobs.db.corrupted`) rather than deleting it immediately. This provides a fallback if the restore process encounters an unexpected issue.
+       *   Copy your chosen backup file into the `instance/` directory.
+       *   Rename the copied backup file to `jobs.db`.
+         ```bash
+         # Example (ensure paths are correct for your system):
+         # mv instance/jobs.db instance/jobs.db.before_restore 
+         # cp /path/to/your/backup_location/jobs_backup_YYYYMMDD.db instance/jobs.db
+         ```
+   4.  **Verify File Permissions (If Applicable):** Ensure the new `instance/jobs.db` file has the correct ownership and permissions that allow the application to read and write to it. This is more relevant in Linux/macOS environments.
+   5.  **Restart the Application:** Start the Flask application again.
+       ```bash
+       # python app.py (or your service start command)
+       ```
+   6.  **Test Thoroughly:** After restoring, thoroughly test the application to ensure the data is consistent, accessible, and the application functions as expected with the restored data.
+
+   **Important Considerations:**
+   - **Restoring to a Point in Time:** When you restore a backup, the database reverts to the state it was in when that backup was taken. Any data added or changes made *after* the backup was created will be lost.
+   - **Test Restores Periodically:** It's good practice to periodically test your backup and restore procedures (e.g., in a staging or development environment) to ensure they work correctly and that you are familiar with the process.
+
 5. **Logging, Monitoring & Metrics**
    - Implement structured logs, request tracing, and error-tracking.
    - Implement health checks and uptime monitoring.
@@ -330,23 +439,59 @@ The project is a Flask-based 3D print system that requires enhancements in user 
    - Success Criteria: System resources are managed effectively.
 
 # Project Status Board
-- [ ] User Management: Password-reset and account-management flows
-- [ ] Notifications & Feedback: Email notifications and flash-message UX
-- [ ] File Previews & Thumbnails: Thumbnail generation
-- [ ] Data Migrations & Backups: Flask-Migrate and backup procedures
-- [ ] Logging, Monitoring & Metrics: Structured logs and health checks
+- [x] Notifications & Feedback: Email notifications and flash-message UX (COMPLETE)
+- [x] File Previews & Thumbnails: Thumbnail generation (COMPLETE)
+- [ ] User Management: Password-reset and account-management flows (IN PROGRESS)
+- [x] Data Migrations & Backups: Flask-Migrate setup refined; backup/restore procedures documented (INITIAL PHASE COMPLETE)
+- [x] Logging, Monitoring & Metrics: Basic file logging implemented, added specific logs to submit_routes (INITIAL PHASE COMPLETE)
+- [x] Security Enhancements: Basic security headers implemented and CSP adjusted (INITIAL PHASE COMPLETE)
+- [x] Testing Gaps: Initial unit tests for submit_routes created and passing (INITIAL PHASE COMPLETE)
 - [ ] Deployment, Scaling & Secrets: Docker and secrets management
-- [ ] Security Enhancements: Session timeouts and 2FA
-- [ ] Testing Gaps: End-to-end and component tests
 - [ ] Maintenance & Cleanup: Automated purge and disk-space monitoring
 
 # Executor's Feedback or Assistance Requests
-- Updated the scratchpad to reflect the current prioritized plan and project status.
-- Ready to begin work on the first high-priority task: User Management (password-reset and account-management flows).
-- Please confirm if you would like to proceed with this task or reprioritize.
+- Notifications & Feedback task is complete and tested.
+- File Previews & Thumbnails: Thumbnail generation, display, and serving are now complete and tested.
+- Data Migrations & Backups: Flask-Migrate setup has been refined. Procedures for SQLite database backup and restore have been documented.
+- Logging, Monitoring & Metrics: Basic file logging is in place and key submission events are now logged.
+- Security Enhancements: Basic security headers (including CSP) are active. CSP was adjusted to ensure site functionality with CDN-based Tailwind.
+- Testing Gaps: Initial unit tests for submit_routes (GET, successful POST, POST with no file) are implemented and passing.
+- User Management: Task taken off hold. Initial plan is to define User model, set up Flask-Login, and basic auth routes. Session ending for the day; work will resume here.
+- Awaiting Planner direction for the next major task area upon session resumption.
 
 # Lessons
 - Include info useful for debugging in the program output.
 - Read the file before you try to edit it.
-- If there are vulnerabilities that appear in the terminal, run npm audit before proceeding.
-- Always ask before using the -force git command. 
+- If there are vulnerabilities that appear in the terminal, run `npm audit` before proceeding.
+- Always ask before using the `-force` git command.
+- `trimesh` for thumbnail generation may require the `lxml` library if not already present, to handle certain 3D file formats. Install with `pip install lxml`.
+- When using Flask-Migrate to manage database schemas, avoid using `db.create_all()`. Flask-Migrate (via Alembic) should be the sole source of truth for schema creation and modifications through migration scripts (`flask db migrate`, `flask db upgrade`). Using `db.create_all()` can lead to inconsistencies or bypass the migration history.
+
+## Workflow Rules
+### Job Status Flow
+1. **Uploaded:** Initial state after student submission. Original uploaded file resides here.
+2. **Pending:** Staff has inspected, potentially sliced (creating a new authoritative file), and the job is awaiting student confirmation.
+3. **Rejected:** Not approved (with reasons).
+4. **ReadyToPrint:** Approved by staff, confirmed by student, and queued. The authoritative file is the sliced file.
+5. **Printing:** Currently being printed.
+6. **Completed:** Print finished, awaiting pickup.
+7. **PaidPickedUp:** Final state, job archived.
+
+### File Handling Rules
+- **Authoritative Job File:** Each job is associated with a single, authoritative 3D model file. The system's "Open File" button, available at the end of each job row, will always provide direct access to this current authoritative file for the job. This button is for opening/viewing the file with appropriate local software, **not for downloading a new copy**, thus preventing duplicates and process branching.
+- **Initial Upload & Renaming:**
+    - Upon student submission, the uploaded file is **mandatorily renamed** using the convention: `FirstAndLastName_PrintMethod_Color_SimpleJobID` (e.g., `JaneDoe_Filament_Blue_123.stl`). `SimpleJobID` will be the unique integer ID from the `Job` database table.
+    - This renamed file is stored in the `JOBS_ROOT/Uploaded/` directory and is initially the authoritative file for the job.
+- **Staff Inspection & Slicing Workflow:**
+    - When staff inspects a job from the "Uploaded" status/tab, they will use the "Open File" button to open the current authoritative file in their chosen slicer software (e.g., PrusaSlicer, Formlabs PreForm, IdeaMaker).
+    - Slicer software often changes the file type upon saving (e.g., `.stl` might become `.3mf` with PrusaSlicer, `.form` with Formlabs, or `.idea` with IdeaMaker).
+    - After staff completes slicing and saves the file (which now might have a new extension and potentially a slightly modified name if the slicer enforces it), this **newly saved (sliced) file becomes the new authoritative file for the job.**
+    - The system must:
+        - Update the `job.filename` in the database to reflect the filename (and extension) of this new sliced file. The core `SimpleJobID` should ideally be preserved in the filename for continuity if possible, or the system must ensure the job record robustly links to this new filename.
+        - Move this new authoritative (sliced) file from the staff member's local machine (or a temporary processing area if we implement that) into the appropriate job status directory (e.g., `JOBS_ROOT/Pending/` if awaiting student confirmation, or `JOBS_ROOT/ReadyToPrint/` if directly approved).
+        - The original file from the `Uploaded` directory might be archived or deleted at this point, as the sliced file is now the primary one.
+- **"Open File" Button Post-Slicing:** Subsequently, the "Open File" button for this job will always point to and allow opening of this new, sliced authoritative file relevant to its current status.
+- **Storage Path:** Files are generally stored in a path structure like: `UPLOAD_ROOT/StatusName/JobFilename`.
+- **Thumbnails:** Thumbnails are generated from the *original uploaded file* and stored in a central `thumbnails` directory, linked by the `job.id`.
+- **File Type Support:** Initially focus on `.stl`, `.obj`, `.3mf`. The system must be aware that slicers can convert these (e.g., PrusaSlicer often outputs `.3mf`).
+- **Size Limits:** Default 50MB, configurable. 

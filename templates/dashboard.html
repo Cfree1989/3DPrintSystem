@@ -38,6 +38,12 @@
               <div class="text-gray-500">{{ file.email }}</div>
             </div>
 
+            {% if file.thumbnail_path %}
+              <div class="my-2">
+                <img src="{{ url_for('file.serve_thumbnail', filename=file.thumbnail_path.split('/')[-1]) }}" alt="Thumbnail" class="w-32 h-32 object-contain border rounded" />
+              </div>
+            {% endif %}
+
             <div class="flex justify-between items-center text-sm mt-1">
               <div class="flex flex-wrap gap-6 text-gray-700">
                 <div><span class="font-medium">Cost:</span> ${{ file.cost }}</div>
