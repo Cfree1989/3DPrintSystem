@@ -14,4 +14,5 @@ class Job(db.Model):
     material = db.Column(db.String, nullable=True)
     cost = db.Column(db.Float, nullable=True)
     student_confirmed = db.Column(db.Boolean, default=False, nullable=False)
-    rejection_reasons = db.Column(db.String, nullable=True) 
+    rejection_reasons = db.Column(db.String, nullable=True)
+    thumbnail_path = db.Column(db.String, nullable=True) 
