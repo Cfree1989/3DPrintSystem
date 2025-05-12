@@ -15,7 +15,8 @@ class Job(db.Model):
     __tablename__ = 'jobs'
     
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    student_name = db.Column(db.String(128), nullable=False)
+    student_email = db.Column(db.String(120), nullable=False)
     filename = db.Column(db.String(255), nullable=False)
     original_filename = db.Column(db.String(255), nullable=False)
     status = db.Column(db.String(20), nullable=False, default=Status.UPLOADED)
@@ -32,8 +33,9 @@ class Job(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
-    def __init__(self, user_id, filename, original_filename, printer=None, color=None, material=None):
-        self.user_id = user_id
+    def __init__(self, student_name, student_email, filename, original_filename, printer=None, color=None, material=None):
+        self.student_name = student_name
+        self.student_email = student_email
         self.filename = filename
         self.original_filename = original_filename
         self.printer = printer

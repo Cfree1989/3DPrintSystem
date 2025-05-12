@@ -1,7 +1,8 @@
 import os
 import re
 from flask import Blueprint, render_template, request, flash, redirect, url_for, current_app
-from app.models.job import Job
+from flask_login import current_user, login_required
+from app.models.job import Job, Status
 from extensions import db
 from config import Config
 import trimesh
@@ -15,93 +16,106 @@ def sanitize_filename_component(s):
     return re.sub(r'[^A-Za-z0-9]+', '', s or '')
 
 @submit_bp.route('/submit', methods=['GET', 'POST'])
+@login_required
 def submit():
     if request.method == 'POST':
         uploaded = request.files.get('file')
         if not uploaded:
             flash('No file uploaded.', 'error')
-            return render_template('upload_form.html')
+            return render_template('main/upload.html')
 
-        # Gather form data
-        name = request.form.get('name')
-        email = request.form.get('email')
-        print_method = request.form.get('print_method')
-        color = request.form.get('print_color')
+        # Get form data
+        print_method = request.form.get('printer')  # Changed from print_method to printer to match form
+        color = request.form.get('color')
+
+        if not print_method or not color:
+            flash('Please select both a printer and color.', 'error')
+            return render_template('main/upload.html')
 
         # Build new filename with numeric descriptor
-        name_part = sanitize_filename_component(name.replace(' ', ''))
+        name_part = sanitize_filename_component(current_user.username)
         method_part = sanitize_filename_component(print_method)
         color_part = sanitize_filename_component(color)
-        ext = os.path.splitext(uploaded.filename)[1]
-        # Count previous files by this student with same method/color
-        base_query = Job.query.filter_by(name=name, printer=print_method, color=color)
-        descriptor_num = base_query.count() + 1
-        base_filename = f"{name_part}_{method_part}_{color_part}_{descriptor_num}"
-        new_filename = base_filename + ext
-        dest = os.path.join(Config.JOBS_ROOT, Config.UPLOADED_FOLDER, new_filename)
-        # Ensure uniqueness in case of race
-        counter = descriptor_num
-        while os.path.exists(dest):
-            counter += 1
-            new_filename = f"{name_part}_{method_part}_{color_part}_{counter}{ext}"
-            dest = os.path.join(Config.JOBS_ROOT, Config.UPLOADED_FOLDER, new_filename)
+        ext = os.path.splitext(uploaded.filename)[1].lower()  # Ensure lowercase extension
 
-        job = Job(
-            filename=new_filename,
-            name=name,
-            email=email,
-            status=Config.UPLOADED_FOLDER,
+        if ext not in ['.stl', '.obj', '.3mf']:
+            flash('Invalid file type. Allowed types are: STL, OBJ, 3MF', 'error')
+            return render_template('main/upload.html')
+
+        # Count previous files by this user with same method/color
+        descriptor_num = Job.query.filter_by(
+            user_id=current_user.id,
             printer=print_method,
             color=color
-        )
-        db.session.add(job)
-        db.session.commit()
-        current_app.logger.info(f'New job {job.id} ({job.filename}) created successfully for {name} ({email}).')
+        ).count() + 1
 
-        uploaded.save(dest)
+        # Generate filename and ensure uniqueness
+        counter = descriptor_num
+        while True:
+            new_filename = f"{name_part}_{method_part}_{color_part}_{counter}{ext}"
+            dest = os.path.join(Config.JOBS_ROOT, Config.UPLOADED_FOLDER, new_filename)
+            if not os.path.exists(dest):
+                break
+            counter += 1
 
-        # Generate thumbnail for supported 3D files
-        thumbnail_path = None
+        # Create upload directory if it doesn't exist
+        os.makedirs(os.path.dirname(dest), exist_ok=True)
+
         try:
-            if ext.lower() in ['.stl', '.obj', '.3mf']:
-                mesh = trimesh.load(dest, force='mesh')
+            # Create job record
+            job = Job(
+                user_id=current_user.id,
+                filename=new_filename,
+                original_filename=uploaded.filename,
+                printer=print_method,
+                color=color,
+                status=Status.UPLOADED  # Ensure we set the status
+            )
+            db.session.add(job)
+            db.session.commit()
 
-                # Center the mesh at the origin
+            # Save the uploaded file
+            uploaded.save(dest)
+            current_app.logger.info(f'New job {job.id} ({job.filename}) created successfully for {current_user.username} ({current_user.email}).')
+
+            try:
+                # Generate thumbnail
+                mesh = trimesh.load(dest)
+                # Center the mesh
                 mesh.apply_translation(-mesh.bounds.mean(axis=0))
+                # Scale to fit in a unit cube
+                scale = 1.0 / mesh.extents.max()
+                mesh.apply_scale(scale)
 
-                # Calculate a suitable distance for the camera
-                # Use the mesh's maximum extent to ensure the camera is far enough away
-                # Add a small buffer (e.g., 1.5x to 2x the max extent)
-                distance = mesh.extents.max() * 1.8 # Increased buffer slightly
-                if distance < 1e-5: # handle case where mesh is tiny or flat
-                    distance = 2.0 # default reasonable distance
-
-                # Get camera transform looking at the mesh bounds from the calculated distance
-                camera_transform = trimesh.scene.cameras.look_at(mesh.bounds, fov=np.deg2rad(60), distance=distance, center=mesh.bounds.mean(axis=0))
-
-                pyrender_scene = pyrender.Scene(ambient_light=np.array([0.1, 0.1, 0.1, 1.0]), bg_color=[0.1, 0.1, 0.3, 1.0]) # Slightly darker bg
-                pyrender_mesh = pyrender.Mesh.from_trimesh(mesh, smooth=False)
+                # Create pyrender scene
+                pyrender_scene = pyrender.Scene()
+                pyrender_mesh = pyrender.Mesh.from_trimesh(mesh)
                 pyrender_scene.add(pyrender_mesh)
-                
-                # Add camera to pyrender scene
-                pyrender_camera = pyrender.PerspectiveCamera(yfov=np.deg2rad(60), aspectRatio=1.0)
-                pyrender_scene.add(pyrender_camera, pose=camera_transform)
 
-                # Add a directional light, relative to the camera's view
-                # Simple light: coming from a bit above and to the side of the camera's viewpoint
-                light_pose = camera_transform @ np.array([
-                    [1, 0, 0, 0.5],  # Offset slightly to the right of camera
-                    [0, 1, 0, 0.5],  # Offset slightly above camera
-                    [0, 0, 1, 2.0],  # In front of camera
-                    [0, 0, 0, 1  ]
+                # Add camera
+                camera = pyrender.PerspectiveCamera(yfov=np.pi / 3.0)
+                camera_pose = np.array([
+                    [1.0, 0.0, 0.0, 0.0],
+                    [0.0, 1.0, 0.0, 0.0],
+                    [0.0, 0.0, 1.0, 2.0],
+                    [0.0, 0.0, 0.0, 1.0]
+                ])
+                pyrender_scene.add(camera, pose=camera_pose)
+
+                # Add light
+                light_pose = np.array([
+                    [1.0, 0.0, 0.0, 1.0],
+                    [0.0, 1.0, 0.0, 1.0],
+                    [0.0, 0.0, 1.0, 1.0],
+                    [0.0, 0.0, 0.0, 1.0]
                 ])
                 light = pyrender.DirectionalLight(color=np.ones(3), intensity=3.0)
-                pyrender_scene.add(light, pose=light_pose) # Add light with a pose
+                pyrender_scene.add(light, pose=light_pose)
 
                 # Offscreen rendering
                 r = pyrender.OffscreenRenderer(viewport_width=256, viewport_height=256)
                 color, _ = r.render(pyrender_scene)
-                r.delete() # Important to free GPU resources
+                r.delete()
 
                 thumb_img = Image.fromarray(color)
                 thumbnails_dir = os.path.join(Config.BASE_DIR, 'thumbnails')
@@ -113,13 +127,21 @@ def submit():
                 job.thumbnail_path = f"thumbnails/{thumbnail_filename}"
                 db.session.commit()
                 current_app.logger.info(f'Thumbnail generated successfully for job {job.id} at {thumbnail_path}')
-        except Exception as e:
-            current_app.logger.error(f"Thumbnail generation failed for job {job.id} ({new_filename if 'new_filename' in locals() else 'unknown'}): {e}", exc_info=True)
+            except Exception as e:
+                current_app.logger.error(f"Thumbnail generation failed for job {job.id} ({new_filename}): {e}", exc_info=True)
+                # Continue even if thumbnail generation fails
 
-        flash('File uploaded successfully! You will receive an email when your print is ready for confirmation.', 'success')
-        return redirect(url_for('submit.submission_succeeded_page'))
-    return render_template('upload_form.html')
+            flash('File uploaded successfully! You will receive an email when your print is ready for confirmation.', 'success')
+            return redirect(url_for('submit.submission_succeeded_page'))
+
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f"Error creating job: {str(e)}", exc_info=True)
+            flash('An error occurred while processing your upload. Please try again.', 'error')
+            return render_template('main/upload.html')
+
+    return render_template('main/upload.html')
 
 @submit_bp.route('/submission-successful')
 def submission_succeeded_page():
-    return render_template('submission_successful.html') 
+    return render_template('confirmation/submission_success.html') 

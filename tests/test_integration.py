@@ -2,8 +2,8 @@ import unittest
 from flask import url_for
 from flask_mail import Message
 from app import create_app, db
-from app.models.user import User
-from app.services.email_service import mail
+# from app.models.user import User # Commented out
+from app.models.job import Job
 from config import TestingConfig
 import re
 

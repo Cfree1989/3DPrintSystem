@@ -2,10 +2,27 @@
 
 {% block content %}
 <div class="container mx-auto px-4">
-    <h1 class="text-3xl font-bold mb-8">Upload Print Job</h1>
+    <h1 class="text-3xl font-bold mb-8">Submit Print Job</h1>
 
     <div class="max-w-2xl mx-auto">
-        <form method="POST" enctype="multipart/form-data" class="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4">
+        <form method="POST" enctype="multipart/form-data" class="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4" id="uploadForm">
+            <div class="mb-6">
+                <label class="block text-gray-700 text-sm font-bold mb-2" for="student_name">
+                    Your Name
+                </label>
+                <input class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                       id="student_name" name="student_name" type="text" placeholder="First Last" required>
+            </div>
+
+            <div class="mb-6">
+                <label class="block text-gray-700 text-sm font-bold mb-2" for="student_email">
+                    Your Email
+                </label>
+                <input class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                       id="student_email" name="student_email" type="email" placeholder="your_email@example.com" required>
+                <p class="text-gray-600 text-xs italic mt-1">Used for notifications about your print job.</p>
+            </div>
+
             <div class="mb-6">
                 <label class="block text-gray-700 text-sm font-bold mb-2" for="file">
                     3D Model File
@@ -13,6 +30,7 @@
                 <input class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
                        id="file" name="file" type="file" accept=".stl,.obj,.3mf" required>
                 <p class="text-gray-600 text-xs italic mt-1">Accepted formats: STL, OBJ, 3MF</p>
+                <p id="fileError" class="text-red-500 text-xs italic mt-1 hidden"></p>
             </div>
 
             <div class="mb-6">
@@ -49,15 +67,11 @@
                 </select>
             </div>
 
-            <div class="flex items-center justify-between">
+            <div class="flex items-center justify-center">
                 <button class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
-                        type="submit">
-                    Upload Print Job
+                        type="submit" id="submitBtn">
+                    Submit Print Job
                 </button>
-                <a class="inline-block align-baseline font-bold text-sm text-indigo-600 hover:text-indigo-700"
-                   href="{{ url_for('main.jobs') }}">
-                    View My Jobs
-                </a>
             </div>
         </form>
 
@@ -87,4 +101,60 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB in bytes
+    const ALLOWED_TYPES = ['.stl', '.obj', '.3mf'];
+    
+    const fileInput = document.getElementById('file');
+    const fileError = document.getElementById('fileError');
+    const submitBtn = document.getElementById('submitBtn');
+    const uploadForm = document.getElementById('uploadForm');
+    
+    function validateFile(file) {
+        // Reset error state
+        fileError.classList.add('hidden');
+        submitBtn.disabled = false;
+        
+        // Check if file is selected
+        if (!file) {
+            return true;
+        }
+        
+        // Check file size
+        if (file.size > MAX_FILE_SIZE) {
+            fileError.textContent = `File is too large. Maximum size is 50MB. Your file is ${(file.size / (1024 * 1024)).toFixed(1)}MB.`;
+            fileError.classList.remove('hidden');
+            submitBtn.disabled = true;
+            return false;
+        }
+        
+        // Check file type
+        const fileName = file.name.toLowerCase();
+        const validType = ALLOWED_TYPES.some(type => fileName.endsWith(type));
+        if (!validType) {
+            fileError.textContent = `Invalid file type. Allowed types are: ${ALLOWED_TYPES.join(', ')}`;
+            fileError.classList.remove('hidden');
+            submitBtn.disabled = true;
+            return false;
+        }
+        
+        return true;
+    }
+    
+    // Validate on file selection
+    fileInput.addEventListener('change', (e) => {
+        validateFile(e.target.files[0]);
+    });
+    
+    // Validate before form submission
+    uploadForm.addEventListener('submit', (e) => {
+        const file = fileInput.files[0];
+        if (!validateFile(file)) {
+            e.preventDefault();
+        }
+    });
+</script>
 {% endblock %} 

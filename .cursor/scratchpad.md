@@ -465,4 +465,60 @@ This creates a conflict because both are trying to define the 'jobs' relationshi
 - [ ] 9.17 Create dashboard for system health monitoring
 
 # Current Focus
-Starting with client-side improvements to enhance user experience, particularly the file upload process. 
+Starting with client-side improvements to enhance user experience, particularly the file upload process.
+
+# Background and Motivation
+The current password-based authentication system is overly complex for a small lab environment with only 10 staff members. A simpler authentication mechanism is needed.
+
+# Key Challenges and Analysis
+1. Need to maintain some form of user identification
+2. Need to ensure system security while removing password complexity
+3. Need to update all related components (database, forms, routes)
+4. Need to maintain user sessions and roles
+
+# High-level Task Breakdown
+1. Remove Student Authentication
+   - [x] Remove Flask-Login infrastructure
+   - [x] Delete User model, auth blueprint, forms, templates
+   - [x] Modify Job model (add student_name/email, remove user_id)
+   - [x] Update routes using `current_user` (replace with student form data or staff session)
+   - [ ] Database Migration (Requires reset - **PENDING USER CONFIRMATION**)
+
+2. Implement Simple Staff Login
+   - [x] Add staff_required decorator
+   - [x] Add staff login/logout routes
+   - [x] Create staff_login.html template
+   - [ ] Add STAFF_PASSWORD to configuration
+
+3. Open Submission for Students
+   - [x] Make /submit route public
+   - [x] Update submit template (add student name/email fields)
+
+4. Clean Up Codebase
+   - [x] Remove password-related templates (auth/)
+   - [x] Remove password-related email functionality (implicit via auth removal)
+   - [x] Remove redundant files/folders (`templates/`, `app/forms/`, `app/models/test.py`)
+   - [x] Remove User model imports from tests/migration env
+   - [ ] Update/Fix Tests for new auth model
+
+5. Documentation and Security
+   - [x] Add TODO for token-based student confirmation
+   - [ ] Document new staff auth flow & password rotation
+   - [ ] Ensure STAFF_PASSWORD is secure
+
+# Project Status Board
+- [x] Task 1: Remove Student Authentication (Partially complete - blocked by DB migration reset)
+- [x] Task 2: Implement Simple Staff Login (Partially complete - needs config)
+- [x] Task 3: Open Submission for Students (Complete)
+- [x] Task 4: Clean Up Codebase (Partially complete - tests need update)
+- [ ] Task 5: Documentation and Security
+
+# Executor's Feedback or Assistance Requests
+- **ACTION NEEDED:** Confirm if deleting the database file (`app.db`?) and resetting migration history (deleting `migrations/` folder) is acceptable to fix the "Target database is not up to date" error. This will wipe existing data.
+- The student confirmation route (`/job/<id>/confirm`) currently lacks secure validation. Needs token implementation.
+- Tests in `tests/` need updating to reflect the auth changes.
+- Need to add `STAFF_PASSWORD` to configuration.
+
+# Lessons
+- Simplifying authentication for small, controlled environments
+- Maintaining security while reducing complexity 

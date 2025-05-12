@@ -1,4 +1,4 @@
-2025-05-09 15:16:25,125 ERROR: Exception on /dashboard [GET] [in C:\3DPrintSystem\.venv\Lib\site-packages\flask\app.py:875]
+2025-05-09 15:16:32,575 ERROR: Exception on /dashboard [GET] [in C:\3DPrintSystem\.venv\Lib\site-packages\flask\app.py:875]
 Traceback (most recent call last):
   File "C:\3DPrintSystem\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1964, in _exec_single_context
     self.dialect.do_execute(
@@ -116,3 +116,58 @@ FROM job
 WHERE job.status = ?]
 [parameters: ('Uploaded',)]
 (Background on this error at: https://sqlalche.me/e/20/e3q8)
+2025-05-12 14:28:14,747 INFO: 3DPrintSystem startup [in C:\3DPrintSystem\app.py:44]
+2025-05-12 14:30:00,465 ERROR: Exception on /dashboard [GET] [in C:\3DPrintSystem\.venv\Lib\site-packages\flask\app.py:875]
+Traceback (most recent call last):
+  File "C:\3DPrintSystem\.venv\Lib\site-packages\flask\app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+  File "C:\3DPrintSystem\.venv\Lib\site-packages\flask\app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+  File "C:\3DPrintSystem\.venv\Lib\site-packages\flask\app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "C:\3DPrintSystem\.venv\Lib\site-packages\flask\app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "C:\3DPrintSystem\routes\dashboard_routes.py", line 11, in dashboard
+    jobs_by_status = {status: Job.query.filter_by(status=status).all() for status in statuses}
+                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\3DPrintSystem\.venv\Lib\site-packages\sqlalchemy\orm\query.py", line 2704, in all
+    return self._iter().all()  # type: ignore
+           ~~~~~~~~~~^^
+  File "C:\3DPrintSystem\.venv\Lib\site-packages\sqlalchemy\orm\query.py", line 2858, in _iter
+    result: Union[ScalarResult[_T], Result[_T]] = self.session.execute(
+                                                  ~~~~~~~~~~~~~~~~~~~~^
+        statement,
+        ^^^^^^^^^^
+        params,
+        ^^^^^^^
+        execution_options={"_sa_orm_load_options": self.load_options},
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\3DPrintSystem\.venv\Lib\site-packages\sqlalchemy\orm\session.py", line 2365, in execute
+    return self._execute_internal(
+           ~~~~~~~~~~~~~~~~~~~~~~^
+        statement,
+        ^^^^^^^^^^
+    ...<4 lines>...
+        _add_event=_add_event,
+        ^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\3DPrintSystem\.venv\Lib\site-packages\sqlalchemy\orm\session.py", line 2239, in _execute_internal
+    bind = self.get_bind(**bind_arguments)
+  File "C:\3DPrintSystem\.venv\Lib\site-packages\flask_sqlalchemy\session.py", line 53, in get_bind
+    engines = self._db.engines
+              ^^^^^^^^^^^^^^^^
+  File "C:\3DPrintSystem\.venv\Lib\site-packages\flask_sqlalchemy\extension.py", line 690, in engines
+    raise RuntimeError(
+    ...<3 lines>...
+    )
+RuntimeError: The current Flask app is not registered with this 'SQLAlchemy' instance. Did you forget to call 'init_app', or did you create multiple 'SQLAlchemy' instances?
+2025-05-12 14:32:16,286 INFO: 3DPrintSystem startup [in C:\3DPrintSystem\app.py:44]
+2025-05-12 14:33:51,267 INFO: 3DPrintSystem startup [in C:\3DPrintSystem\app.py:44]
+2025-05-12 14:35:27,944 INFO: 3DPrintSystem startup [in C:\3DPrintSystem\app.py:44]
+2025-05-12 14:50:08,039 INFO: 3DPrintSystem startup [in C:\3DPrintSystem\app.py:53]
+2025-05-12 14:58:30,456 INFO: 3DPrintSystem startup [in C:\3DPrintSystem\app.py:53]
+2025-05-12 15:10:54,850 INFO: 3DPrintSystem startup [in C:\3DPrintSystem\app.py:53]

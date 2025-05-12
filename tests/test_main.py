@@ -2,9 +2,11 @@ import os
 import unittest
 from io import BytesIO
 from app import create_app, db
-from app.models.user import User
+# from app.models.user import User # Commented out
 from app.models.job import Job, Status
-from config import Config
+from config import Config, TestingConfig
+from flask import session
+from werkzeug.security import generate_password_hash # Keep if needed for staff pass hash
 
 class TestConfig(Config):
     TESTING = True

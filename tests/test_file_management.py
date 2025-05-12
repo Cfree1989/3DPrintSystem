@@ -2,9 +2,11 @@ import unittest
 import os
 import io
 from flask import url_for
+from pathlib import Path
 from app import create_app, db
-from app.models.user import User
+# from app.models.user import User # Commented out
 from app.models.job import Job, Status
+from app.services.file_service import FileService
 from config import TestingConfig
 from werkzeug.datastructures import FileStorage
 
@@ -17,10 +19,10 @@ class TestFileManagement(unittest.TestCase):
         db.create_all()
         
         # Create test user
-        self.user = User(username='testuser', email='test@example.com')
-        self.user.set_password('test_password')
-        db.session.add(self.user)
-        db.session.commit()
+        # self.user = User(username='testuser', email='test@example.com')
+        # self.user.set_password('test_password')
+        # db.session.add(self.user)
+        # db.session.commit()
         
         # Log in the user
         self.client.post('/auth/login', data={
