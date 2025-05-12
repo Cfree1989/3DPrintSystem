@@ -1,7 +1,7 @@
 import os
 from flask import Blueprint, send_file, abort, current_app
 from werkzeug.utils import safe_join
-from models import Job
+from app.models.job import Job
 from config import Config
 
 file_bp = Blueprint('file', __name__)

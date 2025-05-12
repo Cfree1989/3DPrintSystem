@@ -1,0 +1,286 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <h1 class="text-3xl font-bold mb-6">Print Job Queue</h1>
+    
+    {% include 'partials/_flash_messages.html' %}
+
+    <div x-data="{ activeTab: 'uploaded' }">
+        <!-- Status Tabs -->
+        <div class="flex flex-wrap gap-2 mb-6">
+            {% for status in ['uploaded', 'pending', 'rejected', 'ready_to_print', 'printing', 'completed', 'paid_picked_up'] %}
+                <button 
+                    @click="activeTab = '{{ status }}'"
+                    :class="{ 'bg-indigo-600 text-white': activeTab === '{{ status }}', 'bg-white text-gray-700': activeTab !== '{{ status }}' }"
+                    class="px-4 py-2 rounded-lg border border-gray-300 text-sm font-medium hover:bg-indigo-50">
+                    {{ status|replace('_', ' ')|title }}
+                    <span class="ml-1 text-xs">({{ jobs_by_status[status]|length }})</span>
+                </button>
+            {% endfor %}
+        </div>
+
+        <!-- Job Cards -->
+        {% for status in ['uploaded', 'pending', 'rejected', 'ready_to_print', 'printing', 'completed', 'paid_picked_up'] %}
+            <div x-show="activeTab === '{{ status }}'" class="space-y-4">
+                {% for job in jobs_by_status[status] %}
+                    <div class="bg-white rounded-lg shadow-sm p-6 border">
+                        <div class="flex justify-between items-start">
+                            <!-- Job Info -->
+                            <div class="space-y-2">
+                                <div class="flex items-center gap-4">
+                                    <h3 class="text-lg font-semibold">{{ job.original_filename }}</h3>
+                                    <span class="text-sm text-gray-500">ID: {{ job.id }}</span>
+                                </div>
+                                <p class="text-sm text-gray-600">Submitted {{ job.created_at.strftime('%Y-%m-%d %H:%M') }}</p>
+                                
+                                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+                                    <div>
+                                        <p class="text-sm font-medium text-gray-500">Printer</p>
+                                        <p class="mt-1">{{ job.printer or 'Not set' }}</p>
+                                    </div>
+                                    <div>
+                                        <p class="text-sm font-medium text-gray-500">Color</p>
+                                        <p class="mt-1">{{ job.color or 'Not set' }}</p>
+                                    </div>
+                                    <div>
+                                        <p class="text-sm font-medium text-gray-500">Material</p>
+                                        <p class="mt-1">{{ job.material or 'Not set' }}</p>
+                                    </div>
+                                    {% if job.weight_g %}
+                                    <div>
+                                        <p class="text-sm font-medium text-gray-500">Weight</p>
+                                        <p class="mt-1">{{ job.weight_g }}g</p>
+                                    </div>
+                                    {% endif %}
+                                    {% if job.time_min %}
+                                    <div>
+                                        <p class="text-sm font-medium text-gray-500">Print Time</p>
+                                        <p class="mt-1">{{ job.get_time_display() }}</p>
+                                    </div>
+                                    {% endif %}
+                                    {% if job.cost %}
+                                    <div>
+                                        <p class="text-sm font-medium text-gray-500">Cost</p>
+                                        <p class="mt-1">${{ "%.2f"|format(job.cost) }}</p>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <!-- Actions -->
+                            <div class="flex flex-col items-end gap-2">
+                                {% if status == 'uploaded' %}
+                                    <div class="flex gap-2 items-center">
+                                        <input type="number" 
+                                               placeholder="Weight (g)" 
+                                               class="weight-input border rounded px-2 py-1 text-sm w-24" 
+                                               data-job-id="{{ job.id }}" />
+                                        <select class="material-select border rounded px-2 py-1 text-sm w-28" 
+                                                data-job-id="{{ job.id }}">
+                                            <option value="">Material...</option>
+                                            <option value="PLA">PLA</option>
+                                            <option value="PETG">PETG</option>
+                                            <option value="ABS">ABS</option>
+                                            <option value="Resin">Resin</option>
+                                        </select>
+                                        <input type="number" 
+                                               placeholder="Time (h)" 
+                                               class="time-input border rounded px-2 py-1 text-sm w-24" 
+                                               data-job-id="{{ job.id }}" />
+                                        <button class="approve-btn bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm"
+                                                data-job-id="{{ job.id }}" 
+                                                disabled>
+                                            Approve
+                                        </button>
+                                    </div>
+                                    <button class="reject-btn bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm"
+                                            data-job-id="{{ job.id }}">
+                                        Reject
+                                    </button>
+                                {% endif %}
+
+                                {% if status == 'pending' and not job.student_confirmed %}
+                                    <span class="text-yellow-600 text-sm">Awaiting student confirmation</span>
+                                {% endif %}
+
+                                <a href="{{ url_for('main.open_file', job_id=job.id) }}" 
+                                   class="text-blue-600 hover:text-blue-800 text-sm">
+                                    Open File
+                                </a>
+                            </div>
+                        </div>
+
+                        {% if job.notes %}
+                            <div class="mt-4 p-4 bg-gray-50 rounded-md">
+                                <p class="text-sm font-medium text-gray-700">Notes</p>
+                                <p class="mt-1 text-sm text-gray-600 whitespace-pre-line">{{ job.notes }}</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                {% else %}
+                    <div class="text-center py-12 bg-gray-50 rounded-lg">
+                        <p class="text-gray-500">No jobs in {{ status|replace('_', ' ')|title }} status</p>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Reject Modal -->
+<div id="reject-modal" 
+     class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center"
+     x-data="{ open: false }"
+     x-show="open"
+     @keydown.escape.window="open = false">
+    <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4" @click.away="open = false">
+        <h3 class="text-lg font-semibold mb-4">Reject Print Job</h3>
+        <form id="reject-form" class="space-y-4">
+            <div class="space-y-2">
+                <label class="block text-sm font-medium text-gray-700">Select Reasons</label>
+                <div class="space-y-2">
+                    <label class="flex items-center">
+                        <input type="checkbox" name="reasons" value="unprintable_geometry" class="mr-2">
+                        Unprintable geometry
+                    </label>
+                    <label class="flex items-center">
+                        <input type="checkbox" name="reasons" value="too_large" class="mr-2">
+                        Too large for printer
+                    </label>
+                    <label class="flex items-center">
+                        <input type="checkbox" name="reasons" value="thin_walls" class="mr-2">
+                        Walls too thin
+                    </label>
+                    <label class="flex items-center">
+                        <input type="checkbox" name="reasons" value="unsupported" class="mr-2">
+                        Unsupported overhangs
+                    </label>
+                </div>
+            </div>
+            <div class="flex justify-end gap-2 mt-6">
+                <button type="button" 
+                        class="px-4 py-2 border rounded text-gray-700 hover:bg-gray-50"
+                        @click="open = false">
+                    Cancel
+                </button>
+                <button type="submit"
+                        class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">
+                    Confirm Rejection
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    // Enable/disable approve button based on inputs
+    document.querySelectorAll('[data-job-id]').forEach(row => {
+        const jobId = row.dataset.jobId;
+        const weightInput = document.querySelector(`.weight-input[data-job-id="${jobId}"]`);
+        const materialSelect = document.querySelector(`.material-select[data-job-id="${jobId}"]`);
+        const timeInput = document.querySelector(`.time-input[data-job-id="${jobId}"]`);
+        const approveBtn = document.querySelector(`.approve-btn[data-job-id="${jobId}"]`);
+        
+        if (weightInput && materialSelect && timeInput && approveBtn) {
+            function checkInputs() {
+                approveBtn.disabled = !(
+                    weightInput.value && 
+                    materialSelect.value && 
+                    timeInput.value && 
+                    parseFloat(weightInput.value) > 0 && 
+                    parseFloat(timeInput.value) > 0
+                );
+            }
+            
+            [weightInput, materialSelect, timeInput].forEach(el => {
+                el.addEventListener('input', checkInputs);
+            });
+        }
+    });
+
+    // Handle approve action
+    document.querySelectorAll('.approve-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const jobId = btn.dataset.jobId;
+            const weight = document.querySelector(`.weight-input[data-job-id="${jobId}"]`).value;
+            const material = document.querySelector(`.material-select[data-job-id="${jobId}"]`).value;
+            const time = document.querySelector(`.time-input[data-job-id="${jobId}"]`).value;
+
+            if (!confirm('Are you sure you want to approve this print job?')) return;
+
+            const formData = new FormData();
+            formData.append('job_id', jobId);
+            formData.append('weight', weight);
+            formData.append('material', material);
+            formData.append('time', time);
+
+            try {
+                const response = await fetch('/main/approve', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (response.ok) {
+                    window.location.reload();
+                } else {
+                    alert('Failed to approve job. Please try again.');
+                }
+            } catch (error) {
+                console.error('Error approving job:', error);
+                alert('Failed to approve job. Please try again.');
+            }
+        });
+    });
+
+    // Handle reject modal
+    const rejectModal = document.getElementById('reject-modal');
+    const rejectForm = document.getElementById('reject-form');
+
+    document.querySelectorAll('.reject-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const jobId = btn.dataset.jobId;
+            rejectForm.dataset.jobId = jobId;
+            rejectModal.classList.remove('hidden');
+        });
+    });
+
+    rejectForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const jobId = rejectForm.dataset.jobId;
+        const reasons = Array.from(rejectForm.querySelectorAll('input[name="reasons"]:checked'))
+                            .map(cb => cb.value);
+
+        if (!reasons.length) {
+            alert('Please select at least one reason for rejection.');
+            return;
+        }
+
+        if (!confirm('Are you sure you want to reject this print job?')) return;
+
+        const formData = new FormData();
+        formData.append('job_id', jobId);
+        reasons.forEach(reason => formData.append('reasons[]', reason));
+
+        try {
+            const response = await fetch('/main/reject', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (response.ok) {
+                window.location.reload();
+            } else {
+                alert('Failed to reject job. Please try again.');
+            }
+        } catch (error) {
+            console.error('Error rejecting job:', error);
+            alert('Failed to reject job. Please try again.');
+        }
+    });
+});
+</script>
+{% endblock %} 

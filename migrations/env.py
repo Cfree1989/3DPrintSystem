@@ -5,6 +5,10 @@ from flask import current_app
 
 from alembic import context
 
+# Import our models
+from app.models.user import User
+from app.models.job import Job
+
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config

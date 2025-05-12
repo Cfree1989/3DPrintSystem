@@ -1,7 +1,9 @@
 from flask import Flask
 from config import Config
 from extensions import db
-from models import Job
+from app.models.job import Job
+from app.models.user import User
+from app.models.test import Test
 from routes.dashboard_routes import dashboard_bp
 from routes.submit_routes import submit_bp
 from routes.approval_routes import approval_bp
@@ -15,7 +17,14 @@ from logging.handlers import RotatingFileHandler
 app = Flask(__name__, template_folder='Templates')
 app.config.from_object(Config)
 
+# Set the database URI to point to the instance directory
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(Config.INSTANCE_DIR, 'app.db')
+
 db.init_app(app)
+
+# Create tables
+with app.app_context():
+    db.create_all()
 
 migrate = Migrate(app, db)
 

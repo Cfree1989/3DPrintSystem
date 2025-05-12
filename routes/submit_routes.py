@@ -1,7 +1,7 @@
 import os
 import re
 from flask import Blueprint, render_template, request, flash, redirect, url_for, current_app
-from models import Job
+from app.models.job import Job
 from extensions import db
 from config import Config
 import trimesh

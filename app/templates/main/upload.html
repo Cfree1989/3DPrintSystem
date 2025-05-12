@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mx-auto px-4">
+    <h1 class="text-3xl font-bold mb-8">Upload Print Job</h1>
+
+    <div class="max-w-2xl mx-auto">
+        <form method="POST" enctype="multipart/form-data" class="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4">
+            <div class="mb-6">
+                <label class="block text-gray-700 text-sm font-bold mb-2" for="file">
+                    3D Model File
+                </label>
+                <input class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                       id="file" name="file" type="file" accept=".stl,.obj,.3mf" required>
+                <p class="text-gray-600 text-xs italic mt-1">Accepted formats: STL, OBJ, 3MF</p>
+            </div>
+
+            <div class="mb-6">
+                <label class="block text-gray-700 text-sm font-bold mb-2" for="printer">
+                    Print Method
+                </label>
+                <select class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                        id="printer" name="printer" required>
+                    <option value="">Select a printer...</option>
+                    <option value="Prusa MK4S">Prusa MK4S - Standard Quality</option>
+                    <option value="Prusa XL">Prusa XL - Large Format</option>
+                    <option value="Raise3D">Raise3D - High Resolution</option>
+                    <option value="Formlabs">Formlabs - Resin</option>
+                </select>
+            </div>
+
+            <div class="mb-6">
+                <label class="block text-gray-700 text-sm font-bold mb-2" for="color">
+                    Color
+                </label>
+                <select class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                        id="color" name="color" required>
+                    <option value="">Select a color...</option>
+                    <option value="Black">Black</option>
+                    <option value="White">White</option>
+                    <option value="Gray">Gray</option>
+                    <option value="Blue">Blue</option>
+                    <option value="Red">Red</option>
+                    <option value="Green">Green</option>
+                    <option value="Yellow">Yellow</option>
+                    <option value="Orange">Orange</option>
+                    <option value="Purple">Purple</option>
+                    <option value="Clear">Clear (Resin)</option>
+                </select>
+            </div>
+
+            <div class="flex items-center justify-between">
+                <button class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+                        type="submit">
+                    Upload Print Job
+                </button>
+                <a class="inline-block align-baseline font-bold text-sm text-indigo-600 hover:text-indigo-700"
+                   href="{{ url_for('main.jobs') }}">
+                    View My Jobs
+                </a>
+            </div>
+        </form>
+
+        <div class="bg-blue-50 border-l-4 border-blue-400 p-4 mb-4">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <svg class="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd"
+                              d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                              clip-rule="evenodd"/>
+                    </svg>
+                </div>
+                <div class="ml-3">
+                    <h3 class="text-sm leading-5 font-medium text-blue-800">
+                        Important Information
+                    </h3>
+                    <div class="mt-2 text-sm leading-5 text-blue-700">
+                        <ul class="list-disc list-inside">
+                            <li>Maximum file size: 50MB</li>
+                            <li>Files will be reviewed by staff before printing</li>
+                            <li>You will be notified when your print is approved/rejected</li>
+                            <li>Cost will be calculated based on material weight and print time</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

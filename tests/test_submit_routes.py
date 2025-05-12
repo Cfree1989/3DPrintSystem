@@ -2,7 +2,9 @@ import pytest
 import os
 from io import BytesIO
 from app import app as flask_app # Use your actual app import
-from models import Job # If you need to check Job model directly
+from flask import url_for
+from werkzeug.datastructures import FileStorage
+from app.models.job import Job # If you need to check Job model directly
 from extensions import db # If you need to interact with db for setup/teardown
 from unittest.mock import patch, MagicMock
 from config import Config as AppConfig

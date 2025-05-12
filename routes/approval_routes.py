@@ -1,6 +1,6 @@
 import os
 from flask import Blueprint, request, url_for, redirect, render_template, jsonify, flash
-from models import Job
+from app.models.job import Job
 from extensions import db
 from config import Config
 from utils.file_utils import move_file_with_lock

@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <h1 class="text-3xl font-bold mb-8">Welcome to 3D Print System</h1>
+    
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="bg-white shadow rounded-lg p-6">
+            <h2 class="text-xl font-semibold mb-4">Quick Actions</h2>
+            <div class="space-y-4">
+                <a href="{{ url_for('main.upload') }}" class="block w-full bg-indigo-600 text-white text-center py-2 px-4 rounded hover:bg-indigo-700">
+                    Upload New Print
+                </a>
+                <a href="{{ url_for('main.jobs') }}" class="block w-full bg-gray-600 text-white text-center py-2 px-4 rounded hover:bg-gray-700">
+                    View My Jobs
+                </a>
+            </div>
+        </div>
+        
+        <div class="bg-white shadow rounded-lg p-6">
+            <h2 class="text-xl font-semibold mb-4">System Status</h2>
+            <div class="space-y-2">
+                <p class="text-gray-600">Active Printers: <span class="font-semibold">3/4</span></p>
+                <p class="text-gray-600">Jobs in Queue: <span class="font-semibold">5</span></p>
+                <p class="text-gray-600">Estimated Wait Time: <span class="font-semibold">2 hours</span></p>
+            </div>
+        </div>
+    </div>
+    
+    {% if current_user.is_staff() %}
+    <div class="mt-8 bg-white shadow rounded-lg p-6">
+        <h2 class="text-xl font-semibold mb-4">Staff Actions</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <a href="{{ url_for('main.pending_jobs') }}" class="bg-yellow-600 text-white text-center py-2 px-4 rounded hover:bg-yellow-700">
+                Review Pending Jobs
+            </a>
+            <a href="{{ url_for('main.manage_printers') }}" class="bg-green-600 text-white text-center py-2 px-4 rounded hover:bg-green-700">
+                Manage Printers
+            </a>
+            <a href="{{ url_for('main.reports') }}" class="bg-blue-600 text-white text-center py-2 px-4 rounded hover:bg-blue-700">
+                View Reports
+            </a>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %} 

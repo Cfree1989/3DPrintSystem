@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    command: flask run --host=0.0.0.0 --port=5000
+    volumes:
+      - .:/app
+      - uploaded_files:/app/uploads
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_APP=app
+      - FLASK_ENV=development
+      - FLASK_DEBUG=1
+      - SECRET_KEY=dev-key-please-change-in-production
+      - DATABASE_URL=sqlite:///instance/app.db
+      - MAIL_SERVER=mailhog
+      - MAIL_PORT=1025
+      - MAIL_USE_TLS=false
+      - UPLOAD_FOLDER=/app/uploads
+    depends_on:
+      - mailhog
+
+  mailhog:
+    image: mailhog/mailhog:latest
+    ports:
+      - "8025:8025"  # Web UI
+      - "1025:1025"  # SMTP server
+
+volumes:
+  uploaded_files: 

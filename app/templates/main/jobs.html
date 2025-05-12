@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mx-auto px-4">
+    <div class="flex justify-between items-center mb-8">
+        <h1 class="text-3xl font-bold">My Print Jobs</h1>
+        <a href="{{ url_for('main.upload') }}" 
+           class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded">
+            Upload New Print
+        </a>
+    </div>
+
+    {% if jobs %}
+        <div class="grid gap-6">
+            {% for job in jobs %}
+                <div class="bg-white shadow rounded-lg p-6">
+                    <div class="flex justify-between items-start mb-4">
+                        <div>
+                            <h2 class="text-xl font-semibold text-gray-900">{{ job.original_filename }}</h2>
+                            <p class="text-sm text-gray-500">Uploaded {{ job.created_at.strftime('%Y-%m-%d %H:%M') }}</p>
+                        </div>
+                        <span class="px-3 py-1 rounded-full text-sm font-medium
+                            {% if job.status == 'uploaded' %} bg-blue-100 text-blue-800
+                            {% elif job.status == 'pending' %} bg-yellow-100 text-yellow-800
+                            {% elif job.status == 'rejected' %} bg-red-100 text-red-800
+                            {% elif job.status == 'ready_to_print' %} bg-green-100 text-green-800
+                            {% elif job.status == 'printing' %} bg-purple-100 text-purple-800
+                            {% elif job.status == 'completed' %} bg-gray-100 text-gray-800
+                            {% endif %}">
+                            {{ job.status|title }}
+                        </span>
+                    </div>
+
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                        <div>
+                            <p class="text-sm font-medium text-gray-500">Printer</p>
+                            <p class="mt-1">{{ job.printer }}</p>
+                        </div>
+                        <div>
+                            <p class="text-sm font-medium text-gray-500">Color</p>
+                            <p class="mt-1">{{ job.color }}</p>
+                        </div>
+                        {% if job.weight_g %}
+                        <div>
+                            <p class="text-sm font-medium text-gray-500">Weight</p>
+                            <p class="mt-1">{{ job.weight_g }}g</p>
+                        </div>
+                        {% endif %}
+                        {% if job.cost %}
+                        <div>
+                            <p class="text-sm font-medium text-gray-500">Cost</p>
+                            <p class="mt-1">${{ "%.2f"|format(job.cost) }}</p>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    {% if job.notes %}
+                        <div class="mt-4 p-4 bg-gray-50 rounded-md">
+                            <p class="text-sm font-medium text-gray-500">Notes</p>
+                            <p class="mt-1 text-gray-700">{{ job.notes }}</p>
+                        </div>
+                    {% endif %}
+
+                    {% if job.status == 'rejected' %}
+                        <div class="mt-4">
+                            <a href="{{ url_for('main.upload') }}" 
+                               class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700">
+                                Submit New Version
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="text-center py-12">
+            <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                      d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+            </svg>
+            <h3 class="mt-2 text-sm font-medium text-gray-900">No print jobs</h3>
+            <p class="mt-1 text-sm text-gray-500">Get started by uploading a new print job.</p>
+            <div class="mt-6">
+                <a href="{{ url_for('main.upload') }}" 
+                   class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700">
+                    Upload New Print
+                </a>
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %} 

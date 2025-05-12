@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template
-from models import Job
+from app.models.job import Job
 from config import Config
 
 dashboard_bp = Blueprint('dashboard', __name__)

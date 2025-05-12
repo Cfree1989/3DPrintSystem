@@ -1,0 +1,5 @@
+# Run maintenance tasks daily at 2 AM
+0 2 * * * /usr/local/bin/python /app/maintenance/cleanup.py >> /app/logs/maintenance.log 2>&1
+ 
+# Check disk space every 6 hours
+0 */6 * * * /usr/local/bin/python -c "from app.maintenance.cleanup import check_disk_space; check_disk_space('/app/uploads')" >> /app/logs/disk_space.log 2>&1 
