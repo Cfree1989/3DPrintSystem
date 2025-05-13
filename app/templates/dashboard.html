@@ -21,9 +21,9 @@
         </div>
 
         <!-- Job Cards -->
-        {% for status in ['uploaded', 'pending', 'rejected', 'ready_to_print', 'printing', 'completed', 'paid_picked_up'] %}
-            <div x-show="activeTab === '{{ status }}'" class="space-y-4">
-                {% for job in jobs_by_status[status] %}
+        {% for status_key in ['uploaded', 'pending', 'rejected', 'ready_to_print', 'printing', 'completed', 'paid_picked_up'] %}
+            <div x-show="activeTab === '{{ status_key }}'" class="space-y-4">
+                {% for job in jobs_by_status[status_key] %}
                     <div class="bg-white rounded-lg shadow-sm p-6 border">
                         <div class="flex justify-between items-start">
                             <!-- Job Info -->
@@ -70,7 +70,7 @@
 
                             <!-- Actions -->
                             <div class="flex flex-col items-end gap-2">
-                                {% if status == 'uploaded' %}
+                                {% if status_key == 'uploaded' %}
                                     <div class="flex gap-2 items-center">
                                         <input type="number" 
                                                placeholder="Weight (g)" 
@@ -100,13 +100,13 @@
                                     </button>
                                 {% endif %}
 
-                                {% if status == 'pending' and not job.student_confirmed %}
+                                {% if status_key == 'pending' and not job.student_confirmed %}
                                     <span class="text-yellow-600 text-sm">Awaiting student confirmation</span>
                                 {% endif %}
 
-                                <a href="{{ url_for('main.open_file', job_id=job.id) }}" 
+                                <a href="{{ url_for('main.download_file', job_id=job.id) }}" 
                                    class="text-blue-600 hover:text-blue-800 text-sm">
-                                    Open File
+                                    Download File (View/Open)
                                 </a>
                             </div>
                         </div>
@@ -120,7 +120,7 @@
                     </div>
                 {% else %}
                     <div class="text-center py-12 bg-gray-50 rounded-lg">
-                        <p class="text-gray-500">No jobs in {{ status|replace('_', ' ')|title }} status</p>
+                        <p class="text-gray-500">No jobs in {{ status_key|replace('_', ' ')|title }} status</p>
                     </div>
                 {% endfor %}
             </div>

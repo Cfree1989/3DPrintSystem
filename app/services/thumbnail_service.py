@@ -1,96 +1,86 @@
 import os
-import numpy as np
 import trimesh
 import pyrender
+import numpy as np
 from PIL import Image
 from flask import current_app
-from pathlib import Path
+from app.models.job import Status
 
 class ThumbnailService:
-    """Service for generating thumbnails from 3D model files."""
-    
-    SUPPORTED_EXTENSIONS = {'.stl', '.obj', '.3mf'}
+    """Service for generating thumbnails of 3D models."""
     
     @staticmethod
-    def generate_thumbnail(file_path: str, job_id: int) -> str:
-        """Generate a thumbnail for a 3D model file.
+    def generate_thumbnail(job):
+        """Generate a thumbnail image for a 3D model file.
         
         Args:
-            file_path: Path to the 3D model file
-            job_id: ID of the job for naming the thumbnail
+            job: Job model instance
             
         Returns:
-            Relative path to the thumbnail file, or None if generation failed
+            str: Path to the generated thumbnail file, or None if generation failed
         """
         try:
-            ext = Path(file_path).suffix.lower()
-            if ext not in ThumbnailService.SUPPORTED_EXTENSIONS:
+            # Get file path
+            file_path = os.path.join(
+                current_app.config['JOBS_ROOT'],
+                Status.UPLOADED.value,
+                job.filename
+            )
+            
+            # Skip thumbnail generation in test environment
+            if current_app.config.get('TESTING'):
                 return None
                 
+            # Load the mesh
             mesh = trimesh.load(file_path, force='mesh')
             
-            # Center the mesh at the origin
+            # Center the mesh
             mesh.apply_translation(-mesh.bounds.mean(axis=0))
             
-            # Calculate camera distance based on mesh size
-            distance = mesh.extents.max() * 1.8
-            if distance < 1e-5:  # Handle tiny or flat meshes
-                distance = 2.0
-                
-            # Set up camera transform
-            camera_transform = trimesh.scene.cameras.look_at(
-                mesh.bounds,
-                fov=np.deg2rad(60),
-                distance=distance,
-                center=mesh.bounds.mean(axis=0)
-            )
+            # Scale to fit in a unit cube
+            scale = 1.0 / mesh.extents.max()
+            mesh.apply_scale(scale)
             
-            # Create scene with ambient lighting
-            scene = pyrender.Scene(
-                ambient_light=np.array([0.1, 0.1, 0.1, 1.0]),
-                bg_color=[0.1, 0.1, 0.3, 1.0]
-            )
+            # Create a scene and add the mesh
+            scene = pyrender.Scene()
+            scene.add(pyrender.Mesh.from_trimesh(mesh))
             
-            # Add mesh to scene
-            scene.add(pyrender.Mesh.from_trimesh(mesh, smooth=False))
+            # Add a camera
+            camera = pyrender.PerspectiveCamera(yfov=np.pi / 3.0)
+            scene.add(camera, pose=np.array([
+                [1.0, 0.0, 0.0, 0.0],
+                [0.0, 1.0, 0.0, 0.0],
+                [0.0, 0.0, 1.0, 2.5],
+                [0.0, 0.0, 0.0, 1.0]
+            ]))
             
-            # Add camera
-            camera = pyrender.PerspectiveCamera(yfov=np.deg2rad(60), aspectRatio=1.0)
-            scene.add(camera, pose=camera_transform)
+            # Add lighting
+            light = pyrender.DirectionalLight(color=np.ones(3), intensity=2.0)
+            scene.add(light, pose=np.array([
+                [1.0, 0.0, 0.0, 0.0],
+                [0.0, 1.0, 0.0, 0.0],
+                [0.0, 0.0, 1.0, 0.0],
+                [0.0, 0.0, 0.0, 1.0]
+            ]))
             
-            # Add directional light
-            light_pose = camera_transform @ np.array([
-                [1, 0, 0, 0.5],   # Right of camera
-                [0, 1, 0, 0.5],   # Above camera
-                [0, 0, 1, 2.0],   # In front of camera
-                [0, 0, 0, 1.0]
-            ])
-            light = pyrender.DirectionalLight(color=np.ones(3), intensity=3.0)
-            scene.add(light, pose=light_pose)
+            # Render
+            r = pyrender.OffscreenRenderer(400, 400)
+            color, _ = r.render(scene)
+            r.delete()
             
-            # Render thumbnail
-            renderer = pyrender.OffscreenRenderer(256, 256)
-            try:
-                color, _ = renderer.render(scene)
-                thumb_img = Image.fromarray(color)
-                
-                # Save thumbnail
-                thumbnails_dir = Path(current_app.root_path) / 'static' / 'thumbnails'
-                thumbnails_dir.mkdir(parents=True, exist_ok=True)
-                
-                thumbnail_filename = f"{job_id}.png"
-                thumbnail_path = thumbnails_dir / thumbnail_filename
-                thumb_img.save(str(thumbnail_path))
-                
-                # Return relative path for database storage
-                return f"static/thumbnails/{thumbnail_filename}"
-            finally:
-                renderer.delete()
-                
+            # Convert to PIL Image and save
+            image = Image.fromarray(color)
+            
+            # Create thumbnails directory if it doesn't exist
+            thumbnails_dir = os.path.join(current_app.config['JOBS_ROOT'], 'thumbnails')
+            os.makedirs(thumbnails_dir, exist_ok=True)
+            
+            # Save thumbnail
+            thumbnail_path = os.path.join('thumbnails', f'{job.filename}.png')
+            image.save(os.path.join(current_app.config['JOBS_ROOT'], thumbnail_path))
+            
+            return thumbnail_path
+            
         except Exception as e:
-            current_app.logger.error(
-                f"Thumbnail generation failed for job {job_id} "
-                f"({Path(file_path).name}): {str(e)}",
-                exc_info=True
-            )
+            current_app.logger.error(f"Thumbnail generation failed for job {job.id} ({job.filename}): {str(e)}")
             return None 

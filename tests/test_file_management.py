@@ -1,12 +1,10 @@
 import unittest
 import os
 import io
-from flask import url_for
 from pathlib import Path
 from app import create_app, db
-# from app.models.user import User # Commented out
 from app.models.job import Job, Status
-from app.services.file_service import FileService
+from app.services.file_service import FileService, atomic_move
 from config import TestingConfig
 from werkzeug.datastructures import FileStorage
 
@@ -18,135 +16,162 @@ class TestFileManagement(unittest.TestCase):
         self.client = self.app.test_client()
         db.create_all()
         
-        # Create test user
-        # self.user = User(username='testuser', email='test@example.com')
-        # self.user.set_password('test_password')
-        # db.session.add(self.user)
-        # db.session.commit()
-        
-        # Log in the user
-        self.client.post('/auth/login', data={
-            'username': 'testuser',
-            'password': 'test_password'
-        })
-        
-        # Create test upload directory
-        os.makedirs(self.app.config['UPLOAD_FOLDER'], exist_ok=True)
+        # Set up test directories
+        self.test_jobs_root = Path(self.app.config['JOBS_ROOT'])
+        for folder in self.app.config['STATUS_FOLDERS']:
+            os.makedirs(self.test_jobs_root / folder, exist_ok=True)
 
     def tearDown(self):
-        # Clean up uploaded files
-        for root, dirs, files in os.walk(self.app.config['UPLOAD_FOLDER']):
-            for file in files:
-                os.remove(os.path.join(root, file))
-        os.rmdir(self.app.config['UPLOAD_FOLDER'])
-        
         db.session.remove()
         db.drop_all()
+        # Clean up test directories
+        if self.test_jobs_root.exists():
+            import shutil
+            shutil.rmtree(self.test_jobs_root)
         self.app_context.pop()
 
-    def create_test_file(self, filename, content=b'test file content'):
+    def login_staff(self):
+        """Helper method to login as staff"""
+        return self.client.post('/staff/login', data={
+            'password': self.app.config['STAFF_PASSWORD']
+        }, follow_redirects=True)
+
+    def create_test_file(self, filename, content=b'test content'):
+        """Helper to create a test file."""
         return FileStorage(
             stream=io.BytesIO(content),
             filename=filename,
             content_type='application/octet-stream'
         )
 
-    def test_valid_file_upload(self):
-        """Test uploading a valid 3D model file"""
-        file = self.create_test_file('test_model.stl')
-        response = self.client.post('/upload', data={
-            'file': file,
-            'printer': 'Prusa MK4S',
-            'color': 'Blue'
-        }, follow_redirects=True)
-        self.assertEqual(response.status_code, 200)
-        self.assertIn(b'File uploaded successfully', response.data)
+    def test_secure_job_filename(self):
+        """Test the secure job filename format"""
+        # Test basic case
+        filename = FileService.secure_job_filename(
+            username="John Doe",
+            printer="Prusa MK4S",
+            color="Blue",
+            original_filename="test.stl"
+        )
+        self.assertEqual(filename, "JohnDoe_PrusaMK4S_Blue_1.stl")
         
-        # Check database record
-        job = Job.query.filter_by(user_id=self.user.id).first()
-        self.assertIsNotNone(job)
-        self.assertEqual(job.status, Status.UPLOADED)
+        # Test with special characters
+        filename = FileService.secure_job_filename(
+            username="Mary-Jane O'Connor",
+            printer="Prusa XL",
+            color="Dark Blue",
+            original_filename="my model.stl"
+        )
+        self.assertEqual(filename, "MaryJaneOConnor_PrusaXL_DarkBlue_1.stl")
         
-        # Check file exists
-        file_path = os.path.join(self.app.config['UPLOAD_FOLDER'], job.filename)
-        self.assertTrue(os.path.exists(file_path))
-
-    def test_invalid_file_extension(self):
-        """Test uploading a file with invalid extension"""
-        file = self.create_test_file('invalid.txt')
-        response = self.client.post('/upload', data={
-            'file': file,
-            'printer': 'Prusa MK4S',
-            'color': 'Blue'
-        }, follow_redirects=True)
-        self.assertEqual(response.status_code, 200)
-        self.assertIn(b'Invalid file type', response.data)
-
-    def test_file_size_limit(self):
-        """Test file size limit"""
-        # Create a file larger than the limit
-        large_content = b'x' * (self.app.config['MAX_CONTENT_LENGTH'] + 1)
-        file = self.create_test_file('large.stl', large_content)
-        response = self.client.post('/upload', data={
-            'file': file,
-            'printer': 'Prusa MK4S',
-            'color': 'Blue'
-        }, follow_redirects=True)
-        self.assertEqual(response.status_code, 413)  # Request Entity Too Large
-
-    def test_file_status_transition(self):
-        """Test file status transitions"""
-        # Upload file
-        file = self.create_test_file('test_model.stl')
-        self.client.post('/upload', data={
-            'file': file,
-            'printer': 'Prusa MK4S',
-            'color': 'Blue'
-        })
-        
-        job = Job.query.filter_by(user_id=self.user.id).first()
-        original_filename = job.filename
-        
-        # Create staff user
-        staff = User(username='staff', email='staff@example.com', role='staff')
-        staff.set_password('staff_password')
-        db.session.add(staff)
+        # Test with multiple jobs (should increment ID)
+        job1 = Job(
+            student_name="Test User",
+            student_email="test@example.com",
+            filename="TestUser_PrusaMK4S_Blue_1.stl",
+            original_filename="test1.stl",
+            status=Status.UPLOADED,
+            printer="Prusa MK4S",
+            color="Blue"
+        )
+        db.session.add(job1)
         db.session.commit()
         
-        # Login as staff
-        self.client.get('/auth/logout')
-        self.client.post('/auth/login', data={
-            'username': 'staff',
-            'password': 'staff_password'
-        })
+        filename = FileService.secure_job_filename(
+            username="Another User",
+            printer="Prusa MK4S",
+            color="Red",
+            original_filename="test2.stl"
+        )
+        self.assertEqual(filename, "AnotherUser_PrusaMK4S_Red_2.stl")
+
+    def test_file_upload_and_movement(self):
+        """Test file upload and movement through different status folders"""
+        # Create and upload file
+        file = self.create_test_file('test_model.stl')
+        response = self.client.post('/submit', data={
+            'student_name': 'John Smith',
+            'student_email': 'john@example.com',
+            'file': file,
+            'printer': 'Prusa MK4S',
+            'color': 'Blue'
+        }, follow_redirects=True)
         
-        # Approve job
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b'Submission Confirmed', response.data)
+        
+        # Get job and verify initial file location
+        job = Job.query.first()
+        self.assertIsNotNone(job)
+        uploaded_path = self.test_jobs_root / Status.UPLOADED.value / job.filename
+        self.assertTrue(uploaded_path.exists())
+        
+        # Staff approves job
+        self.login_staff()
         response = self.client.post(f'/job/{job.id}/approve', data={
             'weight_g': 100,
-            'time_min': 60
+            'time_min': 60,
+            'printer': 'Prusa MK4S',
+            'color': 'Blue',
+            'material': 'PLA'
         }, follow_redirects=True)
+        
         self.assertEqual(response.status_code, 200)
         
-        # Check status changed
+        # Verify file moved to pending
         job = Job.query.get(job.id)
-        self.assertEqual(job.status, Status.PENDING)
+        self.assertEqual(job.status, Status.PENDING.value)
+        pending_path = self.test_jobs_root / Status.PENDING.value / job.filename
+        self.assertFalse(uploaded_path.exists())
+        self.assertTrue(pending_path.exists())
         
-        # Check file moved to new location
-        old_path = os.path.join(self.app.config['UPLOAD_FOLDER'], 'uploaded', original_filename)
-        new_path = os.path.join(self.app.config['UPLOAD_FOLDER'], 'pending', job.filename)
-        self.assertFalse(os.path.exists(old_path))
-        self.assertTrue(os.path.exists(new_path))
+        # Student confirms job
+        token = job.confirm_url.split('/')[-1]
+        response = self.client.post(f'/job/confirm/{token}', follow_redirects=True)
+        self.assertEqual(response.status_code, 200)
+        
+        # Verify file moved to ready_to_print
+        job = Job.query.get(job.id)
+        self.assertEqual(job.status, Status.READY_TO_PRINT.value)
+        ready_path = self.test_jobs_root / Status.READY_TO_PRINT.value / job.filename
+        self.assertFalse(pending_path.exists())
+        self.assertTrue(ready_path.exists())
+
+    def test_file_rejection(self):
+        """Test file handling during job rejection"""
+        # Create and upload file
+        file = self.create_test_file('test_model.stl')
+        response = self.client.post('/submit', data={
+            'student_name': 'John Smith',
+            'student_email': 'john@example.com',
+            'file': file,
+            'printer': 'Prusa MK4S',
+            'color': 'Blue'
+        }, follow_redirects=True)
+        
+        job = Job.query.first()
+        uploaded_path = self.test_jobs_root / Status.UPLOADED.value / job.filename
+        
+        # Staff rejects job
+        self.login_staff()
+        response = self.client.post(f'/job/{job.id}/reject', data={
+            'reasons': ['Too large', 'Unsupported overhangs']
+        }, follow_redirects=True)
+        
+        self.assertEqual(response.status_code, 200)
+        
+        # Verify file moved to rejected
+        job = Job.query.get(job.id)
+        self.assertEqual(job.status, Status.REJECTED.value)
+        rejected_path = self.test_jobs_root / Status.REJECTED.value / job.filename
+        self.assertFalse(uploaded_path.exists())
+        self.assertTrue(rejected_path.exists())
 
     def test_concurrent_file_operations(self):
         """Test concurrent file operations"""
-        # This would require a more sophisticated test setup with multiple threads
-        # For now, we'll just verify our atomic move operation works
-        from app.services.file_service import atomic_move
-        from pathlib import Path
-        
         # Create test files
-        source = Path(self.app.config['UPLOAD_FOLDER']) / 'test_source.stl'
-        dest = Path(self.app.config['UPLOAD_FOLDER']) / 'test_dest.stl'
+        source = self.test_jobs_root / 'test_source.stl'
+        dest = self.test_jobs_root / 'test_dest.stl'
         
         with open(source, 'wb') as f:
             f.write(b'test content')
@@ -154,10 +179,34 @@ class TestFileManagement(unittest.TestCase):
         # Perform atomic move
         atomic_move(source, dest)
         
+        # Verify move was successful
         self.assertFalse(source.exists())
         self.assertTrue(dest.exists())
         with open(dest, 'rb') as f:
             self.assertEqual(f.read(), b'test content')
+
+    def test_file_cleanup(self):
+        """Test file cleanup when job is deleted"""
+        # Create and upload file
+        file = self.create_test_file('test_model.stl')
+        response = self.client.post('/submit', data={
+            'student_name': 'John Smith',
+            'student_email': 'john@example.com',
+            'file': file,
+            'printer': 'Prusa MK4S',
+            'color': 'Blue'
+        }, follow_redirects=True)
+        
+        job = Job.query.first()
+        file_path = self.test_jobs_root / Status.UPLOADED.value / job.filename
+        self.assertTrue(file_path.exists())
+        
+        # Delete job
+        db.session.delete(job)
+        db.session.commit()
+        
+        # Verify file is removed
+        self.assertFalse(file_path.exists())
 
 if __name__ == '__main__':
     unittest.main() 

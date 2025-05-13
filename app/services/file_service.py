@@ -7,6 +7,7 @@ import shutil
 from datetime import datetime
 import mimetypes
 from filelock import FileLock
+from app.models.job import Job
 
 class FileService:
     """Centralized service for handling file operations in the 3D print system."""
@@ -16,7 +17,7 @@ class FileService:
     @staticmethod
     def get_upload_path(status: str, filename: str) -> Path:
         """Get the full path for a file in a specific status directory."""
-        return Path(current_app.config['UPLOAD_FOLDER']) / status / filename
+        return Path(current_app.config['JOBS_ROOT']) / status / filename
     
     @staticmethod
     def allowed_file(filename: str) -> bool:
@@ -25,10 +26,29 @@ class FileService:
     
     @staticmethod
     def secure_job_filename(username: str, printer: str, color: str, original_filename: str) -> str:
-        """Generate a secure, standardized filename for a job."""
-        timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
-        secure_name = secure_filename(original_filename)
-        return f"{username}_{printer}_{color}_{timestamp}_{secure_name}"
+        """Generate a secure, standardized filename for a job.
+        
+        Format: Firstlastname_Printmethod_Color_SimpleNumericID.extension
+        Example: JohnDoe_Filament_Blue_123.stl
+        """
+        # Clean and format the name components
+        name_part = ''.join(x for x in username.title() if x.isalnum())
+        printer_part = ''.join(x for x in printer if x.isalnum())
+        color_part = ''.join(x for x in color if x.isalnum())
+        
+        # Get file extension
+        ext = os.path.splitext(original_filename)[1].lower()
+        
+        # Get the next available job ID
+        try:
+            last_job = Job.query.order_by(Job.id.desc()).first()
+            job_id = (last_job.id + 1) if last_job else 1
+        except Exception as e:
+            current_app.logger.error(f"Error getting last job ID: {e}")
+            job_id = 1
+            
+        # Generate the filename
+        return f"{name_part}_{printer_part}_{color_part}_{job_id}{ext}"
     
     @staticmethod
     def save_uploaded_file(file, status: str, filename: str) -> bool:
@@ -91,7 +111,7 @@ class FileService:
     def cleanup_old_files(status: str, max_age_days: int) -> int:
         """Clean up files older than max_age_days in a status directory."""
         try:
-            path = Path(current_app.config['UPLOAD_FOLDER']) / status
+            path = Path(current_app.config['JOBS_ROOT']) / status
             if not path.exists():
                 return 0
             
@@ -108,4 +128,16 @@ class FileService:
             return count
         except Exception as e:
             current_app.logger.error(f"Error cleaning up old files in {status}: {str(e)}")
-            return 0 
+            return 0
+
+def atomic_move(src: Path, dst: Path):
+    """Move a file atomically using file locking to prevent race conditions.
+    
+    Args:
+        src (Path): Source file path
+        dst (Path): Destination file path
+    """
+    lock = FileLock(str(dst.parent / ".queue.lock"))
+    with lock:
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        src.replace(dst) 

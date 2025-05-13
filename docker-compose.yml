@@ -6,7 +6,7 @@ services:
     command: flask run --host=0.0.0.0 --port=5000
     volumes:
       - .:/app
-      - uploaded_files:/app/uploads
+      - jobs_data:/app/jobs
     ports:
       - "5000:5000"
     environment:
@@ -18,7 +18,6 @@ services:
       - MAIL_SERVER=mailhog
       - MAIL_PORT=1025
       - MAIL_USE_TLS=false
-      - UPLOAD_FOLDER=/app/uploads
     depends_on:
       - mailhog
 
@@ -29,4 +28,4 @@ services:
       - "1025:1025"  # SMTP server
 
 volumes:
-  uploaded_files: 
+  jobs_data: 

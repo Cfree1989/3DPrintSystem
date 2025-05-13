@@ -7,35 +7,77 @@ from app.services.thumbnail_service import ThumbnailService
 from app.services.email_service import EmailService
 from config import Config
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from functools import wraps
+from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadTimeSignature
+from app.services.token_service import TokenService
+from app.services.mail_service import MailService
 
 main = Blueprint('main', __name__)
+
+# Helper to get the token serializer
+def get_token_serializer():
+    return URLSafeTimedSerializer(current_app.config['SECRET_KEY'])
 
 # Decorator for staff-only routes
 def staff_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if not session.get('is_staff'):
-            flash('Staff login required to access this page.', 'warning')
-            return redirect(url_for('main.staff_login')) # Redirect to staff login page
+        if 'is_staff' not in session:
+            return redirect(url_for('main.staff_login'))
         return f(*args, **kwargs)
     return decorated_function
 
 @main.route('/')
 @main.route('/index')
-# @login_required # Removed
 def index():
-    # This can be a simple welcome page or redirect to submit/login
-    return render_template('main/index.html', title='Home')
+    # Redirect root to the submit page
+    return redirect(url_for('main.submit'))
 
 @main.route('/dashboard')
 @staff_required # Use the new decorator
 def dashboard():
-    statuses = Config.STATUS_FOLDERS
-    jobs_by_status = {status: Job.query.filter_by(status=status).all() for status in statuses}
-    return render_template('main/dashboard.html', jobs_by_status=jobs_by_status)
+    # statuses_from_config = Config.STATUS_FOLDERS # ['Uploaded', 'Pending', ...]
+    # The template dashboard.html expects lowercase_with_underscore keys 
+    # e.g., 'uploaded', 'pending', 'ready_to_print'
+    
+    jobs_by_status_for_template = {}
+    for db_status_value in Config.STATUS_FOLDERS: # These are the values stored in DB, e.g., "Uploaded", "ReadyToPrint"
+        # Convert DB status value to the key format expected by the template
+        template_key = db_status_value.lower().replace(' ', '_') # 'Uploaded' -> 'uploaded', 'ReadyToPrint' -> 'readytoprint' - wait, template uses 'ready_to_print'
+        
+        # Let's be explicit based on the template's hardcoded list:
+        # 'uploaded', 'pending', 'rejected', 'ready_to_print', 'printing', 'completed', 'paid_picked_up'
+        # The values in Config.STATUS_FOLDERS are 'Uploaded', 'Pending', 'Rejected', 'ReadyToPrint', 'Printing', 'Completed', 'PaidPickedUp'
+
+        # Correct mapping from Config.STATUS_FOLDERS to template keys:
+        if db_status_value == Config.UPLOADED_FOLDER: # 'Uploaded'
+            template_key = 'uploaded'
+        elif db_status_value == Config.PENDING_FOLDER: # 'Pending'
+            template_key = 'pending'
+        elif db_status_value == Config.REJECTED_FOLDER: # 'Rejected'
+            template_key = 'rejected'
+        elif db_status_value == Config.READY_TO_PRINT_FOLDER: # 'ReadyToPrint'
+            template_key = 'ready_to_print'
+        elif db_status_value == Config.PRINTING_FOLDER: # 'Printing'
+            template_key = 'printing'
+        elif db_status_value == Config.COMPLETED_FOLDER: # 'Completed'
+            template_key = 'completed'
+        elif db_status_value == Config.PAID_PICKED_UP_FOLDER: # 'PaidPickedUp'
+            template_key = 'paid_picked_up'
+        else:
+            continue # Should not happen if Config.STATUS_FOLDERS is aligned
+            
+        jobs_by_status_for_template[template_key] = Job.query.filter_by(status=db_status_value).all()
+
+    # Ensure all keys expected by template are present, even if with empty lists
+    expected_template_keys = ['uploaded', 'pending', 'rejected', 'ready_to_print', 'printing', 'completed', 'paid_picked_up']
+    for key in expected_template_keys:
+        if key not in jobs_by_status_for_template:
+            jobs_by_status_for_template[key] = []
+            
+    return render_template('dashboard.html', jobs_by_status=jobs_by_status_for_template)
 
 @main.route('/submit', methods=['GET', 'POST'])
 # @login_required # Removed - Public access
@@ -61,9 +103,7 @@ def submit():
             flash('Invalid file type. Allowed types: ' + ', '.join(FileService.ALLOWED_EXTENSIONS), 'error')
             return redirect(request.url)
             
-        # Generate secure filename
         original_filename = file.filename
-        # Ensure username is derived from form data now
         filename = FileService.secure_job_filename(
             username=student_name, 
             printer=request.form.get('printer', ''),
@@ -71,60 +111,61 @@ def submit():
             original_filename=original_filename
         )
         
-        # Create job record
         job = Job(
             student_name=student_name,
             student_email=student_email,
             filename=filename,
             original_filename=original_filename,
-            status=Status.UPLOADED,
             printer=request.form.get('printer'),
             color=request.form.get('color'),
             material=request.form.get('material')
         )
         db.session.add(job)
-        # Commit earlier to get job.id if needed
         try:
             db.session.commit() 
+            # job.status is already the string value after commit due to model default handling by SQLAlchemy
+            current_app.logger.info(f"Job created successfully in DB. ID: {job.id}, Status: {job.status if hasattr(job, 'status') and job.status else 'N/A'}")
         except Exception as e:
             db.session.rollback()
-            current_app.logger.error(f'Error creating job record: {e}')
+            current_app.logger.error(f'Error during initial job commit or logging: {e}', exc_info=True)
             flash(f'Error creating job record. Please try again.', 'error')
             return redirect(request.url)
             
-        # Save file
-        if not FileService.save_uploaded_file(file, Status.UPLOADED, filename):
-            current_app.logger.error(f'Error saving file for job {job.id}')
-            # Attempt to clean up the created job record
+        if FileService.save_uploaded_file(file, Status.UPLOADED.value, filename):
+            current_app.logger.info(f"File saved successfully for job ID: {job.id}. Filename: {filename}")
+            
+            try:
+                file_path = FileService.get_upload_path(Status.UPLOADED.value, filename)
+                thumbnail_path = ThumbnailService.generate_thumbnail(str(file_path), job.id)
+                if thumbnail_path:
+                    job.thumbnail_path = thumbnail_path
+                    db.session.commit() 
+                    current_app.logger.info(f"Thumbnail path saved for job ID: {job.id}")
+                else:
+                    current_app.logger.warning(f'Thumbnail generation returned no path for job {job.id}')
+            except Exception as thumb_e:
+                db.session.rollback() 
+                current_app.logger.error(f'Error during thumbnail generation for job {job.id}: {thumb_e}', exc_info=True)
+            
+            return redirect(url_for('main.submission_confirmed'))
+
+        else: # FileService.save_uploaded_file returned False
+            current_app.logger.error(f"FileService.save_uploaded_file returned False for filename: {filename}. Associated job ID was: {job.id}")
             try:
                 db.session.delete(job)
                 db.session.commit()
+                current_app.logger.info(f"Job record {job.id} deleted after file save failure.")
             except Exception as cleanup_e:
                 db.session.rollback()
-                current_app.logger.error(f'Error cleaning up job record {job.id} after file save failure: {cleanup_e}')
+                current_app.logger.error(f'Error cleaning up job record {job.id} after file save failure: {cleanup_e}', exc_info=True)
             flash('Error saving uploaded file. Please try again.', 'error')
             return redirect(request.url)
-            
-        # Generate thumbnail
-        try:
-            file_path = FileService.get_upload_path(Status.UPLOADED, filename)
-            thumbnail_path = ThumbnailService.generate_thumbnail(str(file_path), job.id)
-            if thumbnail_path:
-                job.thumbnail_path = thumbnail_path
-                db.session.commit() # Commit again to save thumbnail path
-            else:
-                 current_app.logger.warning(f'Thumbnail generation failed for job {job.id}')
-        except Exception as thumb_e:
-            db.session.rollback() # Rollback thumbnail path commit if needed
-            current_app.logger.error(f'Error during thumbnail generation for job {job.id}: {thumb_e}')
-            # Don't fail the whole submission for thumbnail error
-            flash('File submitted, but thumbnail could not be generated.', 'warning') 
-
-        flash('File submitted successfully! Staff will review it.', 'success')
-        return redirect(url_for('main.index')) # Redirect to home/confirmation page
         
-    # Point to the renamed template file
     return render_template('main/submit.html')
+
+@main.route('/submission-confirmed')
+def submission_confirmed():
+    return render_template('main/submission_confirmed.html', title='Submission Confirmed')
 
 @main.route('/jobs')
 @staff_required # Use the new decorator
@@ -157,8 +198,9 @@ def download_file(job_id):
     )
 
 @main.route('/job/<int:job_id>/approve', methods=['POST'])
-@staff_required # Use the new decorator
+@staff_required
 def approve_job(job_id):
+    """Approve a job and generate confirmation token."""
     job = Job.query.get_or_404(job_id)
     if job.status != Status.UPLOADED:
         flash('Job is not in uploaded state', 'error')
@@ -184,110 +226,124 @@ def approve_job(job_id):
         return redirect(url_for('main.jobs'))
     
     try:
-        job.update_status(Status.PENDING) 
+        # Update job status and generate confirmation token
+        job.update_status(Status.PENDING)
+        token = TokenService.generate_token(job)
+        job.confirm_url = url_for('main.confirm_job_by_token', token=token, _external=True)
         db.session.commit()
+        
+        # Send confirmation email
+        if job.student_email:
+            try:
+                hours = job.time_min // 60
+                minutes = job.time_min % 60
+                EmailService.send_job_approval_email(
+                    student_email=job.student_email,
+                    filename=job.original_filename,
+                    cost=job.cost,
+                    hours=hours,
+                    minutes=minutes,
+                    material=job.material,
+                    confirm_url=job.confirm_url
+                )
+            except Exception as email_error:
+                current_app.logger.error(f'Error sending approval email for job {job.id}: {email_error}')
+                flash('Job approved, but there was an error sending the confirmation email.', 'warning')
+                return redirect(url_for('main.jobs'))
+        
+        flash('Job approved and confirmation email sent.', 'success')
+        return redirect(url_for('main.jobs'))
+        
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f'Error updating job {job.id} status to PENDING: {e}')
         flash(f'Error updating job status: {e}', 'error')
-        FileService.move_file(job.filename, Status.PENDING, Status.UPLOADED) # Attempt rollback move
+        # Attempt to move file back
+        FileService.move_file(job.filename, Status.PENDING, Status.UPLOADED)
         return redirect(url_for('main.jobs'))
-
-    if job.student_email:
-        try:
-            confirm_url = url_for('main.confirm_job', job_id=job.id, _external=True) # Needs token later
-            EmailService.send_job_approval_email(
-                job.student_email,
-                job.original_filename,
-                job.cost,
-                job.time_min // 60 if job.time_min else 0,
-                job.time_min % 60 if job.time_min else 0,
-                job.color,
-                job.material,
-                confirm_url
-            )
-        except Exception as email_e:
-             current_app.logger.error(f'Error sending approval email for job {job.id}: {email_e}')
-             flash('Job approved, but failed to send notification email.', 'warning')
-    else:
-        flash('Job approved, but no student email provided for notification.', 'warning')
-
-    if not current_app.config.get('TESTING'): # Avoid flash message during tests if desired
-        flash('Job approved and student notified (if email provided)', 'success')
-    return redirect(url_for('main.jobs'))
 
 @main.route('/job/<int:job_id>/reject', methods=['POST'])
-@staff_required # Use the new decorator
+@staff_required
 def reject_job(job_id):
+    """Reject a job with reasons."""
     job = Job.query.get_or_404(job_id)
-    if job.status != Status.UPLOADED:
-        flash('Job is not in uploaded state', 'error')
-        return redirect(url_for('main.jobs'))
     
-    reasons = request.form.getlist('reasons')
-    job.rejection_reasons = reasons
-    
-    # Move file to rejected
-    if not FileService.move_file(job.filename, Status.UPLOADED, Status.REJECTED):
-        flash('Error moving file to rejected', 'error')
-        return redirect(url_for('main.jobs'))
+    # Get reject reasons from form
+    reasons = request.form.getlist('reasons')  # Remove [] from key name
+    if not reasons:
+        return jsonify({'error': 'At least one rejection reason is required'}), 400
     
     try:
+        # Update job status and reasons
+        job.reject_reasons = reasons
+        old_status = job.status
         job.update_status(Status.REJECTED)
+        
+        # Move file back to rejected directory
+        if not FileService.move_file(job.filename, Status(old_status), Status.REJECTED):
+            db.session.rollback()
+            return jsonify({'error': 'Error moving file to rejected directory'}), 500
+        
+        # Send rejection email
+        if job.student_email:
+            try:
+                EmailService.send_job_rejection_email(
+                    student_email=job.student_email,
+                    filename=job.original_filename,
+                    reasons=reasons
+                )
+            except Exception as email_error:
+                current_app.logger.error(f'Error sending rejection email for job {job.id}: {email_error}')
+                # Don't rollback the rejection just because email failed
+        
         db.session.commit()
+        return jsonify({'message': 'Job rejected successfully'}), 200
+        
     except Exception as e:
         db.session.rollback()
-        current_app.logger.error(f'Error updating job {job.id} status to REJECTED: {e}')
-        flash(f'Error updating job status: {e}', 'error')
-        FileService.move_file(job.filename, Status.REJECTED, Status.UPLOADED) # Attempt rollback move
-        return redirect(url_for('main.jobs'))
-        
-    if job.student_email:
-        try:
-            EmailService.send_job_rejection_email(job.student_email, job.original_filename, reasons)
-        except Exception as email_e:
-            current_app.logger.error(f'Error sending rejection email for job {job.id}: {email_e}')
-            flash('Job rejected, but failed to send notification email.', 'warning')
-    else:
-         flash('Job rejected, but no student email provided for notification.', 'warning')
+        current_app.logger.error(f'Error rejecting job {job.id}: {e}')
+        return jsonify({'error': str(e)}), 500
 
-    if not current_app.config.get('TESTING'):
-        flash('Job rejected and student notified (if email provided)', 'success')
-    return jsonify(success=True)
-
-@main.route('/job/<int:job_id>/confirm', methods=['GET', 'POST'])
-# @login_required # Removed - Needs token-based access for student
-def confirm_job(job_id):
-    # TODO: Implement secure token validation for student confirmation
+@main.route('/job/confirm/<token>', methods=['GET', 'POST'])
+def confirm_job_by_token(token):
+    """Confirm a job using a confirmation token."""
+    # Verify the token
+    job_id, error = TokenService.verify_token(token)
+    if error:
+        flash(error, 'error')
+        return redirect(url_for('main.submit'))
+    
+    # Get the job
     job = Job.query.get_or_404(job_id)
     
+    # Check job status
     if job.status != Status.PENDING:
-        flash('Job is not pending confirmation', 'error')
-        return redirect(url_for('main.index'))
+        flash("This job must be in 'Pending' status to be confirmed.", 'error')
+        return redirect(url_for('main.submit'))
     
-    if request.method == 'POST':
-        # TODO: Add token validation check here
-        
-        # Move file to ready_to_print
-        if not FileService.move_file(job.filename, Status.PENDING, Status.READY_TO_PRINT):
-            flash('Error moving file to ready', 'error')
-            return redirect(url_for('main.confirm_job', job_id=job_id))
-        
-        try:
-            job.update_status(Status.READY_TO_PRINT)
-            job.student_confirmed = True
-            db.session.commit()
-        except Exception as e:
-             db.session.rollback()
-             current_app.logger.error(f'Error confirming job {job.id}: {e}')
-             flash(f'Error confirming job: {e}', 'error')
-             FileService.move_file(job.filename, Status.READY_TO_PRINT, Status.PENDING) # Attempt rollback move
-             return redirect(url_for('main.confirm_job', job_id=job_id))
-
-        flash('Print job confirmed by student', 'success')
-        return redirect(url_for('main.index')) 
+    if request.method == 'GET':
+        return render_template('student/confirm_job.html', job=job, token=token)
     
-    return render_template('main/confirm_job.html', job=job)
+    try:
+        # Update job status
+        job.student_confirmed = True
+        job.update_status(Status.CONFIRMED)
+        
+        # Move file to confirmed directory
+        if not FileService.move_file(job.filename, Status.PENDING, Status.CONFIRMED):
+            db.session.rollback()
+            flash('Error moving file to confirmed directory', 'error')
+            return redirect(url_for('main.submit'))
+        
+        db.session.commit()
+        flash('Job confirmed successfully! Your print will begin soon.', 'success')
+        return render_template('student/job_confirmed.html', job=job)
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f'Error confirming job {job.id}: {e}')
+        flash('An error occurred while confirming your job. Please try again or contact staff.', 'error')
+        return redirect(url_for('main.submit'))
 
 # Remove unused allowed_file function
 # def allowed_file(filename): ... removed ...
@@ -295,31 +351,16 @@ def confirm_job(job_id):
 # --- Staff Login/Logout Routes ---
 @main.route('/staff/login', methods=['GET', 'POST'])
 def staff_login():
-    if session.get('is_staff'):
-        return redirect(url_for('main.dashboard'))
-
     if request.method == 'POST':
-        password = request.form.get('password')
-        staff_password = current_app.config.get('STAFF_PASSWORD')
-        
-        if not staff_password:
-             flash('Staff authentication is not configured.', 'error')
-             current_app.logger.error('STAFF_PASSWORD not set in configuration.')
-             return render_template('main/staff_login.html')
-
-        # Compare passwords (plain text for now, consider hashing later)
-        if password and password == staff_password:
+        if request.form.get('password') == current_app.config['STAFF_PASSWORD']:
             session['is_staff'] = True
-            session.permanent = True # Make session persistent
-            flash('Staff login successful!', 'success')
-            return redirect(request.args.get('next') or url_for('main.dashboard'))
-        else:
-            flash('Incorrect staff password.', 'error')
-            
-    return render_template('main/staff_login.html') # Need to create this template
+            flash('Successfully logged in as staff.', 'success')
+            return redirect(url_for('main.dashboard'))
+        flash('Invalid password', 'error')
+    return render_template('main/staff_login.html')
 
 @main.route('/staff/logout')
 def staff_logout():
     session.pop('is_staff', None)
-    flash('You have been logged out.', 'info')
-    return redirect(url_for('main.staff_login')) 
+    flash('You have been logged out.', 'success')
+    return redirect(url_for('main.submit')) 

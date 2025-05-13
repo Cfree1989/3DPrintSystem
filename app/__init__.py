@@ -1,6 +1,7 @@
 from flask import Flask
 from config import Config
 from extensions import db, migrate, mail
+from app.models.job import Job
 
 def create_app(config_class=Config):
     app = Flask(__name__)
@@ -20,8 +21,8 @@ def create_app(config_class=Config):
     config_class.init_app(app)
 
     # Create all database tables
-    with app.app_context():
-        db.create_all()
+    # with app.app_context():
+    #     db.create_all()
 
     return app
 

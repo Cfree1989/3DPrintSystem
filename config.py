@@ -15,6 +15,7 @@ class Config:
     PRINTING_FOLDER = 'Printing'
     COMPLETED_FOLDER = 'Completed'
     PAID_PICKED_UP_FOLDER = 'PaidPickedUp'
+    ARCHIVED_FOLDER = 'Archived'  # Added for archiving files
     
     STATUS_FOLDERS = [
         UPLOADED_FOLDER,
@@ -23,7 +24,8 @@ class Config:
         READY_TO_PRINT_FOLDER,
         PRINTING_FOLDER,
         COMPLETED_FOLDER,
-        PAID_PICKED_UP_FOLDER
+        PAID_PICKED_UP_FOLDER,
+        ARCHIVED_FOLDER  # Added to status folders
     ]
     
     # Flask
@@ -33,8 +35,7 @@ class Config:
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or 'sqlite:///app.db'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     
-    # File Upload
-    UPLOAD_FOLDER = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'uploads')
+    # File Upload Settings
     MAX_CONTENT_LENGTH = 50 * 1024 * 1024  # 50MB max file size
     ALLOWED_EXTENSIONS = {'stl', 'obj', '3mf'}
     
@@ -49,18 +50,16 @@ class Config:
     # Session Configuration
     PERMANENT_SESSION_LIFETIME = timedelta(days=7)
     
+    # Staff Authentication
+    STAFF_PASSWORD = os.environ.get('STAFF_PASSWORD') or 'staff_password' # IMPORTANT: Change default in production or set via ENV!
+    
     # Maintenance
     MAINTENANCE_FOLDER = os.path.join(BASE_DIR, 'maintenance')
-    DISK_SPACE_THRESHOLD = 0.9  # 90% disk usage threshold
+    DISK_SPACE_THRESHOLD = 0.9
     
     # Create required directories
     @staticmethod
     def init_app(app):
-        # Create upload directories
-        os.makedirs(os.path.join(Config.UPLOAD_FOLDER, 'uploaded'), exist_ok=True)
-        os.makedirs(os.path.join(Config.UPLOAD_FOLDER, 'processed'), exist_ok=True)
-        os.makedirs(os.path.join(Config.UPLOAD_FOLDER, 'archived'), exist_ok=True)
-        
         # Create instance directory
         os.makedirs(Config.INSTANCE_DIR, exist_ok=True)
         
@@ -79,7 +78,11 @@ class TestingConfig(Config):
     TESTING = True
     SQLALCHEMY_DATABASE_URI = 'sqlite://'  # Use in-memory database
     WTF_CSRF_ENABLED = False
-    UPLOAD_FOLDER = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'test_uploads')
+    MAX_CONTENT_LENGTH = 50 * 1024 * 1024  # 50MB max file size
+    ALLOWED_EXTENSIONS = {'stl', 'obj', '3mf'}
+    SERVER_NAME = 'localhost:5000'
+    APPLICATION_ROOT = '/'
+    PREFERRED_URL_SCHEME = 'http'
 
 class ProductionConfig(Config):
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL')

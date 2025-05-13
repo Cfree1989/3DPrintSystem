@@ -28,26 +28,14 @@
                 </div>
                 
                 <div class="flex items-center space-x-4">
-                    {% if current_user.is_authenticated %}
-                        <a href="{{ url_for('main.upload') }}" class="text-white hover:text-gray-200">Upload</a>
-                        <a href="{{ url_for('main.jobs') }}" class="text-white hover:text-gray-200">My Jobs</a>
-                        {% if current_user.is_staff() %}
-                            <a href="{{ url_for('main.pending_jobs') }}" class="text-white hover:text-gray-200">Review Jobs</a>
-                        {% endif %}
-                        <div class="relative" x-data="{ open: false }">
-                            <button @click="open = !open" class="text-white hover:text-gray-200 flex items-center">
-                                {{ current_user.username }}
-                                <svg class="ml-1 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-                                </svg>
-                            </button>
-                            <div x-show="open" @click.away="open = false" class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1">
-                                <a href="{{ url_for('auth.logout') }}" class="block px-4 py-2 text-gray-700 hover:bg-gray-100">Logout</a>
-                            </div>
-                        </div>
+                    {% if session.get('is_staff') %}
+                        <!-- Staff is logged in -->
+                        <a href="{{ url_for('main.dashboard') }}" class="text-white hover:text-gray-200">Dashboard</a> 
+                        <a href="{{ url_for('main.staff_logout') }}" class="text-white hover:text-gray-200">Staff Logout</a>
                     {% else %}
-                        <a href="{{ url_for('auth.login') }}" class="text-white hover:text-gray-200">Login</a>
-                        <a href="{{ url_for('auth.register') }}" class="text-white hover:text-gray-200">Register</a>
+                        <!-- Staff is not logged in / Public view -->
+                        <a href="{{ url_for('main.submit') }}" class="text-white hover:text-gray-200">Submit Job</a>
+                        <a href="{{ url_for('main.staff_login') }}" class="text-white hover:text-gray-200">Staff Login</a>
                     {% endif %}
                 </div>
             </div>

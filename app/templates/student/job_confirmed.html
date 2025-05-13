@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="max-w-2xl mx-auto">
+        <div class="bg-white shadow-md rounded-lg p-6">
+            <div class="text-center">
+                <svg class="mx-auto h-12 w-12 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                </svg>
+                <h2 class="mt-4 text-2xl font-bold text-gray-900">Print Job Confirmed!</h2>
+                <p class="mt-2 text-gray-600">Your 3D print job has been confirmed and will begin printing soon.</p>
+            </div>
+
+            <div class="mt-6">
+                <h3 class="text-lg font-medium text-gray-900">Job Details</h3>
+                <dl class="mt-4 space-y-4">
+                    <div class="grid grid-cols-3 gap-4">
+                        <dt class="text-sm font-medium text-gray-500">File Name</dt>
+                        <dd class="text-sm text-gray-900 col-span-2">{{ job.original_filename }}</dd>
+                    </div>
+                    <div class="grid grid-cols-3 gap-4">
+                        <dt class="text-sm font-medium text-gray-500">Printer</dt>
+                        <dd class="text-sm text-gray-900 col-span-2">{{ job.printer }}</dd>
+                    </div>
+                    <div class="grid grid-cols-3 gap-4">
+                        <dt class="text-sm font-medium text-gray-500">Material</dt>
+                        <dd class="text-sm text-gray-900 col-span-2">{{ job.material }}</dd>
+                    </div>
+                    <div class="grid grid-cols-3 gap-4">
+                        <dt class="text-sm font-medium text-gray-500">Color</dt>
+                        <dd class="text-sm text-gray-900 col-span-2">{{ job.color }}</dd>
+                    </div>
+                    <div class="grid grid-cols-3 gap-4">
+                        <dt class="text-sm font-medium text-gray-500">Print Time</dt>
+                        <dd class="text-sm text-gray-900 col-span-2">{{ job.get_time_display() }}</dd>
+                    </div>
+                    <div class="grid grid-cols-3 gap-4">
+                        <dt class="text-sm font-medium text-gray-500">Estimated Cost</dt>
+                        <dd class="text-sm text-gray-900 col-span-2">${{ "%.2f"|format(job.cost) }}</dd>
+                    </div>
+                </dl>
+            </div>
+
+            <div class="mt-8 text-center">
+                <p class="text-sm text-gray-600">You will receive an email notification when your print is complete.</p>
+                <a href="{{ url_for('main.submit') }}" class="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                    Submit Another Job
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

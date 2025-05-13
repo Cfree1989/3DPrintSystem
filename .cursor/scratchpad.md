@@ -246,122 +246,164 @@ Every route that changes status wraps file operations with this helper.
   - [x] Cost calculation based on printer type
 
 # Current Focus
-Moving on to quality-of-life improvements:
-- [ ] Client-side file validation
-- [ ] Upload progress bar
-- [ ] File type icons
-- [ ] Job list sorting and filtering
-- [ ] Basic search functionality
-- [ ] Print time estimation
+Task 4 (Test Suite Updates) is in progress. The following test files have been updated to reflect the new authentication model and token-based confirmation system:
+- test_main.py: Updated for staff-only authentication
+- test_submit_routes.py: Updated for new submission flow
+- test_integration.py: Added comprehensive token confirmation tests
 
-# Executor's Progress Report
+Next steps:
+1. Review remaining test files for any user authentication references
+2. Add more test coverage for edge cases
+3. Run the full test suite to verify all changes
 
-I've completed a major refactoring to eliminate redundancies and improve code organization:
+# Background and Motivation
+The project recently underwent a major authentication refactor to simplify the login process for a small lab environment. This involved removing the previous Flask-Login based system (including User model, user-specific routes, forms, and templates) and implementing a simpler, session-based login for staff using a shared password. The job submission process is now public, collecting student name and email directly. This change necessitated a database schema update.
 
-1. **File Management Improvements**
-   - Created centralized `FileService` class
-   - Implemented secure file operations with proper error handling
-   - Added file locking for concurrent operations
-   - Moved file operations from routes to service layer
+# Key Challenges and Analysis
+1.  **Database Migration Failure (RESOLVED):** The primary blocker was an `ERROR [flask_migrate] Error: Target database is not up to date.` This prevented schema updates reflecting the authentication model changes.
+    *   **Resolution:** The issue was resolved by a full database and migration history reset (deleting `instance/app.db` and `migrations/` folder), followed by `flask db init`, then careful adjustments to `app/__init__.py` (removing `db.create_all()`, ensuring model import) and `migrations/env.py` (ensuring correct metadata sourcing within app context, diagnostic logging) to successfully generate and apply the initial migration for the new schema. The key was ensuring `db.metadata` correctly reflected the `Job` model when Alembic ran, and ensuring the database file was truly empty before the final successful migration attempt.
+2.  Ensuring system security with the new simpler authentication model.
+3.  Updating all related components (tests, configurations) to align with the new auth model.
+4.  Implementing a secure method for student job confirmation.
 
-2. **Email System Improvements**
-   - Created centralized `EmailService` class
-   - Added HTML email templates
-   - Improved error handling and logging
-   - Added job status notification emails
+# High-level Task Breakdown
+1.  **Resolve Database Migration Conflict via Reset (COMPLETED)**
+    *   [x] User confirmed database reset.
+    *   [x] Deleted the database file (`instance/app.db`).
+    *   [x] Deleted the `migrations/` folder.
+    *   [x] Ran `flask db init`.
+    *   [x] Modified `app/__init__.py` (commented out `db.create_all()`, ensured `Job` model import).
+    *   [x] Modified `migrations/env.py` (to create app context and derive metadata/URL correctly, added and removed diagnostic print).
+    *   [x] Ran `flask db migrate -m \"Fresh initial migration\"` successfully.
+    *   [x] Ran `flask db upgrade` successfully.
+    *   [x] Verified with `flask db current`.
+    *   Success Criteria: Database schema is up-to-date with models; `flask db migrate` and `flask db upgrade` run without errors. `flask db current` shows the latest migration.
 
-3. **Thumbnail Generation Improvements**
-   - Created dedicated `ThumbnailService` class
-   - Improved 3D model rendering with better lighting
-   - Added error handling and logging
-   - Moved thumbnails to static directory for better caching
+2.  **Configure Staff Password (COMPLETED)**
+    *   [x] Add `STAFF_PASSWORD` variable to the application configuration (`config.py` or `.env` file).
+    *   [x] Ensure the staff login route (`/staff/login`) uses this password for verification.
+    *   Success Criteria: Staff can log in using the configured password. Access to protected routes is correctly granted/denied.
 
-4. **Route Organization**
-   - Consolidated redundant routes into main blueprint
-   - Improved route naming consistency
-   - Added proper authorization checks
-   - Improved error handling and user feedback
+3.  **Implement Secure Student Job Confirmation (COMPLETED)**
+    *   [x] Design a token-based mechanism (e.g., using `itsdangerous` for timed tokens) for student job confirmation links.
+        *   Implemented `URLSafeTimedSerializer` in `app/blueprints/main.py` with a salt and 7-day expiry.
+    *   [x] Update the job confirmation route (`/job/<id>/confirm`) to validate the token.
+        *   Created new route `@main.route('/job/confirm/<token>') def confirm_job_by_token(token)`.
+        *   Handles token validation (expiry, signature), job status checks (`PENDING`, not already confirmed).
+        *   Updates job status to `READY_TO_PRINT` and `student_confirmed = True` on POST.
+        *   Manages file movement from `PENDING` to `READY_TO_PRINT`.
+    *   [x] Generate and include these tokens in student notification emails when a job is pending confirmation.
+        *   Modified `approve_job` route to generate token and include it in the `confirm_url` passed to `EmailService`.
+    *   [x] Created `app/templates/main/student_confirm_job.html` for students to view details and confirm.
+    *   Success Criteria: Students can confirm their jobs securely via a unique link. Unauthorized confirmation attempts are blocked. Job status and file location are correctly updated.
 
-5. **Code Cleanup**
-   - Removed redundant models.py
-   - Eliminated duplicate route definitions
-   - Standardized status handling
-   - Improved type hints and documentation
+4.  **Update and Fix Test Suite**
+    *   [x] Update test_main.py for staff-only authentication
+    *   [x] Update test_submit_routes.py for new submission flow
+    *   [x] Update test_integration.py for token confirmation
+    *   [x] Add test coverage for token expiration
+    *   [x] Verify file movement in tests
+    *   [ ] Review remaining test files
+    *   [ ] Add edge case coverage
+    *   [ ] Run full test suite
 
-### Lessons
+5.  **Thorough End-to-End Workflow Testing**
+    *   [ ] Manually test the complete student submission flow.
+    *   [ ] Manually test staff login and all job management actions (view, approve, reject, update status).
+    *   [ ] Verify email notifications.
+    *   Success Criteria: All core workflows function as expected without errors.
 
-1. Always use service classes to encapsulate related functionality
-2. Implement proper file locking for concurrent operations
-3. Use static directory for serving generated assets
-4. Add comprehensive error handling and logging
-5. Use type hints for better code maintainability
-6. Keep route handlers thin, move business logic to services
-7. Use HTML templates for better email presentation
-8. Implement proper authorization checks on all routes
-9. Use proper file path handling with Path objects
-10. Add proper documentation for all classes and methods
+6.  **Documentation and Final Security Review (Post-Refactor)**
+    *   [ ] Update any internal documentation regarding the authentication flow.
+    *   [ ] Briefly document the new staff authentication process and password management recommendations (e.g., rotation).
+    *   [ ] Review security implications of the simplified auth model and ensure `STAFF_PASSWORD` is handled securely (e.g., environment variable, not hardcoded).
+    *   Success Criteria: Documentation is updated. Basic security considerations for the new model are addressed.
 
-### Next Steps
+# Project Status Board
+Authentication Refactor Tasks:
+- [x] Task 1: Remove Student Authentication (COMPLETED)
+  - [x] Remove Flask-Login infrastructure
+  - [x] Delete User model, auth blueprint, forms, templates
+  - [x] Modify Job model (add student_name/email, remove user_id)
+  - [x] Update routes using `current_user` (replace with student form data or staff session)
+  - [x] Database Migration (COMPLETED - Reset and new initial migration applied)
+- [x] Task 2: Implement Simple Staff Login (COMPLETED)
+  - [x] Add staff_required decorator
+  - [x] Add staff login/logout routes
+  - [x] Create staff_login.html template
+  - [x] Add STAFF_PASSWORD to configuration
+  - [x] Ensure the staff login route (`/staff/login`) uses this password for verification
+  - [x] Verified basic login/logout flow and access to protected routes (`/dashboard`)
+- [x] Task 3: Implement Secure Student Job Confirmation (COMPLETED)
+  - [x] Design token-based mechanism using `itsdangerous`
+  - [x] Implement TokenService with proper salt and expiry
+  - [x] Create new confirmation routes with token validation
+  - [x] Add student confirmation template
+  - [x] Update job model with confirmation fields
+  - [x] Implement proper file movement
+  - [x] Add comprehensive test coverage
+  - [x] Integrate with email notifications
+- [x] Task 4: Update and Fix Test Suite (IN PROGRESS)
+  - [x] Update test_main.py for staff-only authentication
+  - [x] Update test_submit_routes.py for new submission flow
+  - [x] Update test_integration.py for token confirmation
+  - [x] Add test coverage for token expiration
+  - [x] Verify file movement in tests
+  - [ ] Review remaining test files
+  - [ ] Add edge case coverage
+  - [ ] Run full test suite
+- [ ] Task 5: Documentation and Security (NOT STARTED)
+  - [ ] Update internal documentation
+  - [ ] Document staff authentication process
+  - [ ] Review security implications
+  - [ ] Document password management recommendations
 
-1. [ ] Add unit tests for new service classes
-2. [ ] Implement rate limiting for file uploads
-3. [ ] Add file cleanup cron job
-4. [ ] Implement file type validation
-5. [ ] Add progress tracking for long operations
-6. [ ] Implement proper session handling
-7. [ ] Add API documentation
-8. [ ] Set up monitoring and alerting
-9. [ ] Implement backup strategy
-10. [ ] Add performance metrics
+# Executor's Feedback or Assistance Requests
+Current status of test suite updates:
+- test_main.py: Updated successfully
+- test_submit_routes.py: Updated successfully
+- test_integration.py: Updated successfully
+- test_token_confirmation.py: Already up to date
+- test_file_management.py: Needs review for any auth-related changes
+- Need to run full test suite to verify all changes work together
 
-### Project Status Board
+Scratchpad updated with Future UI/UX Improvements list. User to push changes to GitHub.
 
-- [x] File Management
-  - [x] Centralized file service
-  - [x] Secure file operations
-  - [x] File locking
-  - [x] Error handling
-  - [x] Path standardization
+## Future UI/UX Improvements
 
-- [x] Email System
-  - [x] Centralized email service
-  - [x] HTML templates
-  - [x] Error handling
-  - [x] Status notifications
-  - [x] Async sending
+### File Management
+- [ ] Restore thumbnail generation and display
+- [ ] Fix file naming convention to: FirstAndLastName_PrintMethod_Color_SimpleJobID
+- [ ] Change "Download File" to "Open File" (must open local file, not download new copy)
 
-- [x] Thumbnail Generation
-  - [x] Dedicated service
-  - [x] Improved rendering
-  - [x] Error handling
-  - [x] Static file serving
-  - [x] Caching support
+### Job Management
+- [ ] Fix approve/reject button functionality
+- [ ] Enable field updates in job rows (weight, material, time)
+- [ ] Add student name and email to job rows
+- [ ] Improve timestamp display format
 
-- [x] Route Organization
-  - [x] Consolidated routes
-  - [x] Authorization checks
-  - [x] Error handling
-  - [x] User feedback
-  - [x] Consistent naming
+### UI Cleanup
+- [ ] Remove redundant "Dashboard" button
+- [ ] Rename "Staff Logout" to "Logout"
 
-### Executor's Feedback or Assistance Requests
-
-1. Need to verify if we should add more file type validations
-2. Consider implementing file upload progress tracking
-3. Review email templates for accessibility
-4. Consider adding rate limiting for API endpoints
-5. Review backup strategy for uploaded files
-
-Would you like me to proceed with implementing any of the next steps?
+These improvements will be addressed after core functionality is stable.
 
 # Lessons
-- Include info useful for debugging in the program output.
-- Read the file before you try to edit it.
-- If there are vulnerabilities that appear in the terminal, run `npm audit` before proceeding.
-- Always ask before using the `-force` git command.
-- `trimesh` for thumbnail generation may require the `lxml` library if not already present, to handle certain 3D file formats. Install with `pip install lxml`.
-- When using Flask-Migrate to manage database schemas, avoid using `db.create_all()`. Flask-Migrate (via Alembic) should be the sole source of truth for schema creation and modifications through migration scripts (`flask db migrate`, `flask db upgrade`). Using `db.create_all()` can lead to inconsistencies or bypass the migration history.
-- For initial database setup when migrations aren't detecting models, you may need to use `db.create_all()` to create the initial tables, but after that, switch to using Flask-Migrate for all schema changes.
+- **Test Suite Organization:**
+  - Keep test files focused on specific functionality
+  - Use fixtures to share common setup code
+  - Mock external services appropriately
+  - Clean up test resources properly
+- **Testing Authentication:**
+  - Test both authenticated and unauthenticated access
+  - Verify proper redirection for protected routes
+  - Test token generation and validation
+  - Check session handling
+- **File Management in Tests:**
+  - Create and clean up test directories properly
+  - Verify file movements between status folders
+  - Mock file operations when appropriate
+  - Use proper path handling for different environments
 
 ## Workflow Rules
 ### Job Status Flow

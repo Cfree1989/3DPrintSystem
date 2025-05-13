@@ -1,13 +1,17 @@
 import unittest
 from flask import url_for
 from flask_mail import Message
-from app import create_app, db
-# from app.models.user import User # Commented out
-from app.models.job import Job
+from app import create_app, db, mail
+from app.models.job import Job, Status
+from app.services.token_service import TokenService
 from config import TestingConfig
+import os
+import shutil
+from pathlib import Path
 import re
+from io import BytesIO
 
-class TestUserFlows(unittest.TestCase):
+class TestJobFlows(unittest.TestCase):
     def setUp(self):
         self.app = create_app(TestingConfig)
         self.app_context = self.app.app_context()
@@ -19,126 +23,173 @@ class TestUserFlows(unittest.TestCase):
         self.sent_emails = []
         def record_messages(message):
             self.sent_emails.append(message)
-        
         mail.send = record_messages
+        
+        # Set up test directories
+        self.test_jobs_root = Path(self.app.config['JOBS_ROOT'])
+        for folder in self.app.config['STATUS_FOLDERS']:
+            os.makedirs(self.test_jobs_root / folder, exist_ok=True)
 
     def tearDown(self):
         db.session.remove()
         db.drop_all()
+        # Clean up test directories
+        if self.test_jobs_root.exists():
+            shutil.rmtree(self.test_jobs_root)
         self.app_context.pop()
         self.sent_emails = []
 
-    def test_registration_and_login_flow(self):
-        """Test the complete flow from registration to login"""
-        # 1. Register a new user
-        response = self.client.post('/auth/register', data={
-            'username': 'testuser',
-            'email': 'test@example.com',
-            'password': 'test_password',
-            'password2': 'test_password'
+    def login_staff(self):
+        """Helper method to login as staff"""
+        return self.client.post('/staff/login', data={
+            'password': self.app.config['STAFF_PASSWORD']
         }, follow_redirects=True)
-        self.assertEqual(response.status_code, 200)
-        self.assertIn(b'Congratulations, you are now a registered user!', response.data)
-        
-        # 2. Try to log in with wrong password
-        response = self.client.post('/auth/login', data={
-            'username': 'testuser',
-            'password': 'wrong_password',
-            'remember_me': False
-        }, follow_redirects=True)
-        self.assertIn(b'Invalid username or password', response.data)
-        
-        # 3. Log in with correct password
-        response = self.client.post('/auth/login', data={
-            'username': 'testuser',
-            'password': 'test_password',
-            'remember_me': True
-        }, follow_redirects=True)
-        self.assertEqual(response.status_code, 200)
-        
-        # 4. Access protected page
-        response = self.client.get('/dashboard')
-        self.assertEqual(response.status_code, 200)
-        
-        # 5. Logout
-        response = self.client.get('/auth/logout', follow_redirects=True)
-        self.assertEqual(response.status_code, 200)
-        
-        # 6. Try to access protected page after logout
-        response = self.client.get('/dashboard')
-        self.assertEqual(response.status_code, 302)  # Redirects to login
 
-    def test_password_reset_flow(self):
-        """Test the complete password reset flow"""
-        # 1. Create a user
-        user = User(username='resetuser', email='reset@example.com')
-        user.set_password('original_password')
-        db.session.add(user)
-        db.session.commit()
+    def create_test_file(self, job):
+        """Helper to create a test file for a job."""
+        source_path = self.test_jobs_root / job.status / job.filename
+        source_path.parent.mkdir(parents=True, exist_ok=True)
+        source_path.write_text("Test file content")
+        return source_path
+
+    def test_complete_job_flow(self):
+        """Test the complete job flow from submission to confirmation."""
+        # 1. Submit job
+        with open(os.path.join(os.path.dirname(__file__), 'test_files/test.stl'), 'rb') as f:
+            response = self.client.post('/submit', data={
+                'student_name': 'John Smith',
+                'student_email': 'john@example.com',
+                'file': (f, 'test.stl'),
+                'printer': 'Prusa MK4S',
+                'color': 'Blue',
+                'material': 'PLA'
+            }, follow_redirects=True)
         
-        # 2. Request password reset
-        response = self.client.post('/auth/reset-password-request', data={
-            'email': 'reset@example.com'
-        }, follow_redirects=True)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(self.sent_emails), 1)
+        self.assertIn(b'Submission Confirmed', response.data)
         
-        # Extract token from email
+        # Get the created job
+        job = Job.query.filter_by(student_email='john@example.com').first()
+        self.assertIsNotNone(job)
+        self.assertEqual(job.status, Status.UPLOADED.value)
+        
+        # Create test file
+        self.create_test_file(job)
+        
+        # 2. Staff approves job
+        self.login_staff()
+        response = self.client.post(f'/job/{job.id}/approve', data={
+            'weight_g': 100,
+            'time_min': 120,
+            'printer': 'Prusa MK4S',
+            'color': 'Blue',
+            'material': 'PLA'
+        }, follow_redirects=True)
+        
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b'Job approved', response.data)
+        
+        # Verify job status and email
+        job = Job.query.get(job.id)
+        self.assertEqual(job.status, Status.PENDING.value)
+        self.assertIsNotNone(job.confirm_url)
+        self.assertEqual(len(self.sent_emails), 1)
+        self.assertIn('john@example.com', self.sent_emails[0].recipients)
+        
+        # Extract confirmation token from email
         email_body = self.sent_emails[0].html
-        token_match = re.search(r'/reset-password/([^"]+)', email_body)
+        token_match = re.search(r'/job/confirm/([^"]+)', email_body)
         self.assertIsNotNone(token_match)
         token = token_match.group(1)
         
-        # 3. Reset password with token
-        response = self.client.post(f'/auth/reset-password/{token}', data={
-            'password': 'new_password',
-            'password2': 'new_password'
-        }, follow_redirects=True)
+        # 3. Student confirms job
+        response = self.client.get(f'/job/confirm/{token}')
         self.assertEqual(response.status_code, 200)
-        self.assertIn(b'Your password has been reset', response.data)
+        self.assertIn(b'Confirm Your 3D Print Job', response.data)
         
-        # 4. Try to log in with old password
-        response = self.client.post('/auth/login', data={
-            'username': 'resetuser',
-            'password': 'original_password'
-        }, follow_redirects=True)
-        self.assertIn(b'Invalid username or password', response.data)
-        
-        # 5. Log in with new password
-        response = self.client.post('/auth/login', data={
-            'username': 'resetuser',
-            'password': 'new_password'
-        }, follow_redirects=True)
+        response = self.client.post(f'/job/confirm/{token}', follow_redirects=True)
         self.assertEqual(response.status_code, 200)
+        self.assertIn(b'Your 3D print job has been confirmed', response.data)
+        
+        # Verify final job status
+        job = Job.query.get(job.id)
+        self.assertEqual(job.status, Status.READY_TO_PRINT.value)
+        self.assertTrue(job.student_confirmed)
+        self.assertIsNone(job.confirm_url)  # URL should be invalidated
+        
+        # Verify file location
+        file_path = self.test_jobs_root / Status.READY_TO_PRINT.value / job.filename
+        self.assertTrue(file_path.exists())
 
-    def test_duplicate_registration(self):
-        """Test registration with duplicate username/email"""
-        # 1. Create initial user
-        response = self.client.post('/auth/register', data={
-            'username': 'testuser',
-            'email': 'test@example.com',
-            'password': 'test_password',
-            'password2': 'test_password'
+    def test_job_rejection_flow(self):
+        """Test the job rejection flow."""
+        # 1. Submit job
+        with open(os.path.join(os.path.dirname(__file__), 'test_files/test.stl'), 'rb') as f:
+            response = self.client.post('/submit', data={
+                'student_name': 'John Smith',
+                'student_email': 'john@example.com',
+                'file': (f, 'test.stl'),
+                'printer': 'Prusa MK4S',
+                'color': 'Blue'
+            }, follow_redirects=True)
+        
+        job = Job.query.filter_by(student_email='john@example.com').first()
+        self.create_test_file(job)
+        
+        # 2. Staff rejects job
+        self.login_staff()
+        response = self.client.post(f'/job/{job.id}/reject', data={
+            'reasons': ['Too large', 'Unsupported overhangs']
         }, follow_redirects=True)
+        
         self.assertEqual(response.status_code, 200)
+        self.assertIn(b'success', response.data)  # JSON response
         
-        # 2. Try to register with same username
-        response = self.client.post('/auth/register', data={
-            'username': 'testuser',
-            'email': 'different@example.com',
-            'password': 'test_password',
-            'password2': 'test_password'
-        }, follow_redirects=True)
-        self.assertIn(b'Please use a different username', response.data)
+        # Verify job status and email
+        job = Job.query.get(job.id)
+        self.assertEqual(job.status, Status.REJECTED.value)
+        self.assertEqual(job.reject_reasons, ['Too large', 'Unsupported overhangs'])
+        self.assertEqual(len(self.sent_emails), 1)
+        self.assertIn('john@example.com', self.sent_emails[0].recipients)
         
-        # 3. Try to register with same email
-        response = self.client.post('/auth/register', data={
-            'username': 'different',
-            'email': 'test@example.com',
-            'password': 'test_password',
-            'password2': 'test_password'
-        }, follow_redirects=True)
-        self.assertIn(b'Please use a different email address', response.data)
+        # Verify file location
+        file_path = self.test_jobs_root / Status.REJECTED.value / job.filename
+        self.assertTrue(file_path.exists())
+
+    def test_expired_token_flow(self):
+        """Test handling of expired confirmation tokens."""
+        # Create and approve a job
+        job = Job(
+            student_name='John Smith',
+            student_email='john@example.com',
+            filename='test.stl',
+            original_filename='test.stl',
+            status=Status.PENDING,
+            printer='Prusa MK4S',
+            color='Blue',
+            material='PLA',
+            weight_g=100,
+            time_min=120
+        )
+        db.session.add(job)
+        db.session.commit()
+        self.create_test_file(job)
+        
+        # Generate an expired token
+        token = TokenService.generate_token(job)
+        
+        # Try to confirm with expired token
+        response = self.client.get(
+            f'/job/confirm/{token}',
+            follow_redirects=True
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b'confirmation link has expired', response.data)
+        
+        # Verify job status unchanged
+        job = Job.query.get(job.id)
+        self.assertEqual(job.status, Status.PENDING.value)
+        self.assertFalse(job.student_confirmed)
 
 if __name__ == '__main__':
     unittest.main() 

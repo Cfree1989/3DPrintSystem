@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container mx-auto mt-10 px-4 text-center">
+    <div class="max-w-md mx-auto bg-white shadow-lg rounded-lg p-8">
+        <svg class="w-16 h-16 mx-auto mb-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+        <h1 class="text-3xl font-bold mb-3 text-gray-800">Submission Confirmed!</h1>
+        <p class="text-gray-600 mb-6">Your file has been successfully submitted. Staff will review it shortly. You will receive an email if it's approved and requires your confirmation, or if it's rejected.</p>
+        <div class="flex justify-center">
+            <a href="{{ url_for('main.submit') }}" 
+               class="bg-green-500 hover:bg-green-600 text-white font-semibold py-3 px-8 rounded-lg shadow-md transition duration-150 ease-in-out text-lg">
+                Submit Another File
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %} 

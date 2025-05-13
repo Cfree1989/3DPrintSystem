@@ -32,52 +32,46 @@ class EmailService:
             return False
     
     @staticmethod
-    def send_job_approval_email(
-        recipient: str,
-        filename: str,
-        cost: float,
-        hours: int,
-        minutes: int,
-        color: str,
-        material: str,
-        confirm_url: str
-    ):
-        """Send job approval notification email."""
-        subject = "3D Print Job Approved - Action Required"
+    def send_job_approval_email(student_email: str, filename: str, cost: float, hours: int, minutes: int, material: str, confirm_url: str):
+        """Send an approval email for a job.
         
-        # Format time string
-        time_str = ""
-        if hours > 0:
-            time_str += f"{hours} hour{'s' if hours != 1 else ''}"
-        if minutes > 0:
-            if time_str:
-                time_str += " and "
-            time_str += f"{minutes} minute{'s' if minutes != 1 else ''}"
+        Args:
+            student_email: Recipient email address
+            filename: Original filename
+            cost: Calculated cost
+            hours: Print time hours
+            minutes: Print time minutes
+            material: Material type
+            confirm_url: Confirmation URL
+        """
+        subject = '3D Print Job Approved - Action Required'
         
-        body = f"""Your 3D print job for {filename} has been approved!
+        # Plain text version
+        body = f'''Your 3D print job has been approved and is ready for confirmation!
 
-Details:
-- Estimated Cost: ${cost:.2f}
-- Print Time: {time_str}
-- Color: {color or 'N/A'}
-- Material: {material or 'N/A'}
+File: {filename}
+Estimated Cost: ${cost:.2f}
+Print Time: {hours}h {minutes}m
+Material: {material}
 
 Please confirm your print job by clicking the following link:
 {confirm_url}
 
-Note: Your print will not begin until you confirm. The job will be cancelled if not confirmed within 48 hours.
+This link will expire in 7 days. After confirmation, your job will be moved to the print queue.
 
-Thank you for using our 3D printing service!"""
-        
-        html = f"""
-        <h2>Your 3D print job for {filename} has been approved!</h2>
+Best regards,
+3D Print Lab Team'''
+
+        # HTML version
+        html = f'''
+        <h2>Your 3D print job has been approved and is ready for confirmation!</h2>
         
         <h3>Print Details:</h3>
         <ul>
+            <li><strong>File:</strong> {filename}</li>
             <li><strong>Estimated Cost:</strong> ${cost:.2f}</li>
-            <li><strong>Print Time:</strong> {time_str}</li>
-            <li><strong>Color:</strong> {color or 'N/A'}</li>
-            <li><strong>Material:</strong> {material or 'N/A'}</li>
+            <li><strong>Print Time:</strong> {hours}h {minutes}m</li>
+            <li><strong>Material:</strong> {material}</li>
         </ul>
         
         <p>Please confirm your print job by clicking the button below:</p>
@@ -94,49 +88,57 @@ Thank you for using our 3D printing service!"""
             </a>
         </p>
         
-        <p><em>Note: Your print will not begin until you confirm. The job will be cancelled if not confirmed within 48 hours.</em></p>
+        <p><em>This link will expire in 7 days. After confirmation, your job will be moved to the print queue.</em></p>
         
-        <p>Thank you for using our 3D printing service!</p>
-        """
-        
-        return EmailService.send_email(subject, recipient, body, html)
+        <p>Best regards,<br>3D Print Lab Team</p>
+        '''
+
+        return EmailService.send_email(subject, student_email, body, html)
     
     @staticmethod
-    def send_job_rejection_email(recipient: str, filename: str, reasons: List[str]):
-        """Send job rejection notification email."""
-        subject = "3D Print Job Rejected"
+    def send_job_rejection_email(student_email: str, filename: str, reasons: list):
+        """Send a rejection email for a job.
         
-        reasons_list = "\n".join(f"- {reason}" for reason in reasons)
+        Args:
+            student_email: Recipient email address
+            filename: Original filename
+            reasons: List of rejection reasons
+        """
+        subject = '3D Print Job Rejected'
         
-        body = f"""Unfortunately, your 3D print job for {filename} has been rejected.
+        # Format reasons list
+        reasons_list = '\n'.join(f'- {reason}' for reason in reasons)
+        
+        # Plain text version
+        body = f'''Your 3D print job has been rejected.
 
-Rejection Reasons:
+File: {filename}
+
+Reasons for rejection:
 {reasons_list}
 
-Please review the reasons and make any necessary adjustments before submitting a new print job.
+Please make the necessary adjustments and submit a new print job.
 
-If you have any questions, please contact the lab staff.
+Best regards,
+3D Print Lab Team'''
 
-Thank you for your understanding."""
+        # HTML version
+        html = f'''
+        <h2>Your 3D print job has been rejected.</h2>
         
-        html = f"""
-        <h2>3D Print Job Rejected</h2>
+        <p><strong>File:</strong> {filename}</p>
         
-        <p>Unfortunately, your 3D print job for <strong>{filename}</strong> has been rejected.</p>
-        
-        <h3>Rejection Reasons:</h3>
+        <h3>Reasons for rejection:</h3>
         <ul>
-            {"".join(f"<li>{reason}</li>" for reason in reasons)}
+            {''.join(f'<li>{reason}</li>' for reason in reasons)}
         </ul>
         
-        <p>Please review the reasons and make any necessary adjustments before submitting a new print job.</p>
+        <p>Please make the necessary adjustments and submit a new print job.</p>
         
-        <p>If you have any questions, please contact the lab staff.</p>
-        
-        <p>Thank you for your understanding.</p>
-        """
-        
-        return EmailService.send_email(subject, recipient, body, html)
+        <p>Best regards,<br>3D Print Lab Team</p>
+        '''
+
+        return EmailService.send_email(subject, student_email, body, html)
     
     @staticmethod
     def send_job_complete_email(recipient: str, filename: str, pickup_location: str):

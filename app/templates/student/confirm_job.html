@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="max-w-2xl mx-auto">
+        <div class="bg-white shadow-md rounded-lg p-6">
+            <h2 class="text-2xl font-bold text-gray-900 mb-4">Confirm Your Print Job</h2>
+            <p class="text-gray-600 mb-6">Please review the details below and confirm your print job.</p>
+
+            <div class="mt-6">
+                <h3 class="text-lg font-medium text-gray-900">Job Details</h3>
+                <dl class="mt-4 space-y-4">
+                    <div class="grid grid-cols-3 gap-4">
+                        <dt class="text-sm font-medium text-gray-500">File Name</dt>
+                        <dd class="text-sm text-gray-900 col-span-2">{{ job.original_filename }}</dd>
+                    </div>
+                    <div class="grid grid-cols-3 gap-4">
+                        <dt class="text-sm font-medium text-gray-500">Printer</dt>
+                        <dd class="text-sm text-gray-900 col-span-2">{{ job.printer }}</dd>
+                    </div>
+                    <div class="grid grid-cols-3 gap-4">
+                        <dt class="text-sm font-medium text-gray-500">Material</dt>
+                        <dd class="text-sm text-gray-900 col-span-2">{{ job.material }}</dd>
+                    </div>
+                    <div class="grid grid-cols-3 gap-4">
+                        <dt class="text-sm font-medium text-gray-500">Color</dt>
+                        <dd class="text-sm text-gray-900 col-span-2">{{ job.color }}</dd>
+                    </div>
+                    <div class="grid grid-cols-3 gap-4">
+                        <dt class="text-sm font-medium text-gray-500">Print Time</dt>
+                        <dd class="text-sm text-gray-900 col-span-2">{{ job.get_time_display() }}</dd>
+                    </div>
+                    <div class="grid grid-cols-3 gap-4">
+                        <dt class="text-sm font-medium text-gray-500">Estimated Cost</dt>
+                        <dd class="text-sm text-gray-900 col-span-2">{% if job.cost %}${{ "%.2f"|format(job.cost) }}{% else %}Not calculated{% endif %}</dd>
+                    </div>
+                </dl>
+            </div>
+
+            <div class="mt-8">
+                <form method="POST" action="{{ url_for('main.confirm_job_by_token', token=token) }}">
+                    <div class="bg-gray-50 p-4 rounded-md mb-6">
+                        <h4 class="text-sm font-medium text-gray-700 mb-2">Important Notes:</h4>
+                        <ul class="list-disc list-inside text-sm text-gray-600 space-y-1">
+                            <li>By confirming, you agree to pay the estimated cost</li>
+                            <li>Your print will begin as soon as a printer is available</li>
+                            <li>You will be notified when your print is complete</li>
+                        </ul>
+                    </div>
+
+                    <div class="flex justify-end space-x-4">
+                        <a href="{{ url_for('main.submit') }}" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                            Cancel
+                        </a>
+                        <button type="submit" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                            Confirm Print Job
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 
